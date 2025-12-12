@@ -1,0 +1,16 @@
+[
+    {
+        "origin": [
+            "http://localhost:5173",
+            "https://studio-9484462989-432c2.web.app"
+        ],
+        "method": [
+            "GET",
+            "PUT",
+            "POST",
+            "DELETE",
+            "HEAD"
+        ],
+        "maxAgeSeconds": 3600
+    }
+]

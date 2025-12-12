@@ -3,13 +3,17 @@ import { useAuth } from "../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { updateProfile } from "firebase/auth";
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../firebase";
 import toast from "react-hot-toast";
-import { User, Mail } from "lucide-react";
+import { User, Mail, Camera } from "lucide-react";
 
 export default function Profile() {
     const { currentUser, logout } = useAuth();
     const nameRef = useRef();
+    const fileInputRef = useRef();
+    const [photo, setPhoto] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -37,14 +41,24 @@ export default function Profile() {
         setError("");
 
         try {
-            if (nameRef.current.value !== currentUser.displayName) {
+            let photoURL = currentUser.photoURL;
+
+            if (photo) {
+                const fileRef = ref(storage, `users/${currentUser.uid}/profile.png`); // Simple Overwrite
+                await uploadBytes(fileRef, photo);
+                photoURL = await getDownloadURL(fileRef);
+            }
+
+            if (nameRef.current.value !== currentUser.displayName || photo) {
                 await updateProfile(currentUser, {
-                    displayName: nameRef.current.value
+                    displayName: nameRef.current.value,
+                    photoURL: photoURL
                 });
                 // Also update in Firestore
                 const userRef = doc(db, "users", currentUser.uid);
                 await updateDoc(userRef, {
-                    displayName: nameRef.current.value
+                    displayName: nameRef.current.value,
+                    photoURL: photoURL
                 });
                 toast.success("Profile updated!");
             }
@@ -61,10 +75,19 @@ export default function Profile() {
                 <h2 className="text-center mb-4">Profile</h2>
                 {error && <div style={{ color: "#ef4444", marginBottom: "1rem", textAlign: "center" }}>{error}</div>}
 
-                <div className="flex justify-center mb-6">
-                    <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--accent-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", overflow: "hidden" }}>
-                        {currentUser?.photoURL ? <img src={currentUser.photoURL} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (currentUser?.displayName?.[0] || <User />)}
+                <div
+                    className="flex justify-center mb-6 relative"
+                    onClick={() => fileInputRef.current.click()}
+                    style={{ cursor: "pointer" }}
+                    title="Click to update profile picture"
+                >
+                    <div style={{ width: "100px", height: "100px", borderRadius: "50%", background: "var(--accent-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", overflow: "hidden", position: "relative", border: "3px solid var(--bg-secondary)", transition: "transform 0.2s" }} className="hover:scale-105">
+                        {photoPreview || currentUser?.photoURL ?
+                            <img src={photoPreview || currentUser.photoURL} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            : (currentUser?.displayName?.[0] || <User />)
+                        }
                     </div>
+                    <input type="file" id="photo-upload" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} accept="image/*" />
                 </div>
 
                 <form onSubmit={handleUpdateProfile} className="flex flex-col gap-4">
