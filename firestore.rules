@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper to check if user is owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Helper to check if user has admin role
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    match /users/{userId} {
+      // Allow users to read and write their own document
+      // Allow admins to read all user documents (for the dashboard)
+      // Allow admins to write (to change roles)
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(userId); // Allow creation on signup
+    }
+  }
+}
