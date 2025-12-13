@@ -71,7 +71,7 @@ export default function Profile() {
 
     return (
         <div className="container flex items-center justify-center" style={{ minHeight: "80vh" }}>
-            <div className="glass-card w-full" style={{ maxWidth: "400px", padding: "2rem" }}>
+            <div className="card w-full" style={{ maxWidth: "400px", padding: "2rem" }}>
                 <h2 className="text-center mb-4">Profile</h2>
                 {error && <div style={{ color: "#ef4444", marginBottom: "1rem", textAlign: "center" }}>{error}</div>}
 
@@ -81,7 +81,7 @@ export default function Profile() {
                     style={{ cursor: "pointer" }}
                     title="Click to update profile picture"
                 >
-                    <div style={{ width: "100px", height: "100px", borderRadius: "50%", background: "var(--accent-secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", overflow: "hidden", position: "relative", border: "3px solid var(--bg-secondary)", transition: "transform 0.2s" }} className="hover:scale-105">
+                    <div style={{ width: "100px", height: "100px", borderRadius: "50%", background: "var(--accent-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", overflow: "hidden", position: "relative", border: "2px solid var(--bg-secondary)", transition: "transform 0.2s" }} className="hover:scale-105 shadow-md">
                         {photoPreview || currentUser?.photoURL ?
                             <img src={photoPreview || currentUser.photoURL} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             : (currentUser?.displayName?.[0] || <User />)

@@ -1,69 +1,34 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Signup from './components/Signup';
 import Login from './components/Login';
 import Profile from './components/Profile';
 import AdminDashboard from './components/AdminDashboard';
+import Predictions from './components/Predictions';
 import PrivateRoute from './components/PrivateRoute';
-import { Home, User, Shield } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import Layout from './components/Layout';
 
-function HomeWithNav() {
+function Dashboard() {
     const { currentUser } = useAuth();
-    const [isAdmin, setIsAdmin] = useState(false);
-
-    useEffect(() => {
-        async function checkAdmin() {
-            if (currentUser) {
-                const snap = await getDoc(doc(db, "users", currentUser.uid));
-                if (snap.exists() && snap.data().role === 'admin') {
-                    setIsAdmin(true);
-                }
-            }
-        }
-        checkAdmin();
-    }, [currentUser]);
-
     return (
-        <div className="container">
-            <nav className="glass-card flex justify-between items-center p-4 mb-8" style={{ padding: "1rem 2rem" }}>
-                <div className="flex items-center gap-2 font-bold text-xl">
-                    <span style={{ fontSize: "1.5rem" }}>🔥</span> Prediction App
+        <div>
+            <h1>Dashboard</h1>
+            <p className="text-[var(--text-secondary)] mt-2">Welcome back, {currentUser?.displayName}!</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <div className="card">
+                    <h3>Total Predictions</h3>
+                    <p className="text-3xl font-bold mt-2 text-[var(--accent-primary)]">0</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    {currentUser ? (
-                        <>
-                            {isAdmin && (
-                                <Link to="/admin" className="btn btn-secondary">
-                                    <Shield size={16} /> Admin
-                                </Link>
-                            )}
-                            <Link to="/profile" className="btn btn-primary">
-                                <User size={16} /> Profile
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            <Link to="/login" className="btn btn-secondary">Log In</Link>
-                            <Link to="/signup" className="btn btn-primary">Sign Up</Link>
-                        </>
-                    )}
+                <div className="card">
+                    <h3>Success Rate</h3>
+                    <p className="text-3xl font-bold mt-2 text-[var(--accent-secondary)]">0%</p>
                 </div>
-            </nav>
-
-            <div className="text-center mt-12 fade-in">
-                <h1>Welcome to the App</h1>
-                <p className="mt-4 text-xl" style={{ color: "var(--text-secondary)" }}>
-                    A premium experience built with React and Firebase.
-                </p>
-                {!currentUser && (
-                    <div className="mt-8">
-                        <Link to="/signup" className="btn btn-primary" style={{ padding: "1rem 2rem", fontSize: "1.25rem" }}>Get Started</Link>
-                    </div>
-                )}
+                <div className="card">
+                    <h3>Points</h3>
+                    <p className="text-3xl font-bold mt-2 text-green-500">0</p>
+                </div>
             </div>
         </div>
     );
@@ -72,32 +37,55 @@ function HomeWithNav() {
 function App() {
     return (
         <Router>
-            <div className="min-h-screen">
-                <Toaster position="top-center" toastOptions={{
-                    style: {
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border-color)',
-                    },
-                }} />
+            <ThemeProvider>
                 <AuthProvider>
+                    <Toaster position="top-center" toastOptions={{
+                        style: {
+                            background: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--border-color)',
+                        },
+                    }} />
                     <Routes>
+                        {/* Public Routes */}
                         <Route path="/signup" element={<Signup />} />
                         <Route path="/login" element={<Login />} />
+
+                        {/* Private Routes with Layout */}
+                        <Route path="/" element={
+                            <PrivateRoute>
+                                <Layout>
+                                    <Dashboard />
+                                </Layout>
+                            </PrivateRoute>
+                        } />
+                        <Route path="/matches" element={
+                            <PrivateRoute>
+                                <Layout>
+                                    <Predictions />
+                                </Layout>
+                            </PrivateRoute>
+                        } />
                         <Route path="/profile" element={
                             <PrivateRoute>
-                                <Profile />
+                                <Layout>
+                                    <Profile />
+                                </Layout>
                             </PrivateRoute>
                         } />
                         <Route path="/admin" element={
                             <PrivateRoute>
-                                <AdminDashboard />
+                                <Layout>
+                                    <AdminDashboard />
+                                </Layout>
                             </PrivateRoute>
                         } />
-                        <Route path="/" element={<HomeWithNav />} />
+
+                        {/* Catch all */}
+                        <Route path="*" element={<Navigate to="/" />} />
                     </Routes>
                 </AuthProvider>
-            </div>
+            </ThemeProvider>
         </Router>
     );
 }
