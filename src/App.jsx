@@ -6,33 +6,12 @@ import Signup from './components/Signup';
 import Login from './components/Login';
 import Profile from './components/Profile';
 import AdminDashboard from './components/AdminDashboard';
+import Dashboard from './components/Dashboard'; // Import extracted component
 import Predictions from './components/Predictions';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 
-function Dashboard() {
-    const { currentUser } = useAuth();
-    return (
-        <div>
-            <h1>Dashboard</h1>
-            <p className="text-[var(--text-secondary)] mt-2">Welcome back, {currentUser?.displayName}!</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-                <div className="card">
-                    <h3>Total Predictions</h3>
-                    <p className="text-3xl font-bold mt-2 text-[var(--accent-primary)]">0</p>
-                </div>
-                <div className="card">
-                    <h3>Success Rate</h3>
-                    <p className="text-3xl font-bold mt-2 text-[var(--accent-secondary)]">0%</p>
-                </div>
-                <div className="card">
-                    <h3>Points</h3>
-                    <p className="text-3xl font-bold mt-2 text-green-500">0</p>
-                </div>
-            </div>
-        </div>
-    );
-}
+// Dashboard component extracted to src/components/Dashboard.jsx
 
 function App() {
     return (

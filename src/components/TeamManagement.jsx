@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const TeamManagement = () => {
@@ -23,9 +22,8 @@ const TeamManagement = () => {
     const fetchTeams = async () => {
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, 'teams'));
-            const teamList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setTeams(teamList);
+            const res = await api.get('/teams');
+            setTeams(res.data);
         } catch (error) {
             console.error("Error fetching teams:", error);
             toast.error('Failed to fetch teams');
@@ -56,21 +54,19 @@ const TeamManagement = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // Map form data to Firestore schema
+            // Map form data to MySQL Schema (Team.js)
             const payload = {
                 name: formData.name,
                 short_name: formData.shortName,
-                three_letter_name: formData.threeLetterName.toUpperCase(),
-                crest: formData.crest
+                tla: formData.threeLetterName.toUpperCase(),
+                crest_url: formData.crest
             };
 
             if (editingTeam) {
-                await updateDoc(doc(db, 'teams', editingTeam.id), payload);
+                await api.put(`/teams/${editingTeam.id}`, payload);
                 toast.success('Team updated successfully');
             } else {
-                // Create new document with auto-ID
-                const newTeamRef = doc(collection(db, 'teams'));
-                await setDoc(newTeamRef, payload);
+                await api.post('/teams', payload);
                 toast.success('Team created successfully');
             }
 
@@ -87,8 +83,8 @@ const TeamManagement = () => {
         setFormData({
             name: team.name,
             shortName: team.short_name || team.name,
-            threeLetterName: team.three_letter_name || '',
-            crest: team.crest || ''
+            threeLetterName: team.tla || '',
+            crest: team.crest_url || ''
         });
         setShowForm(true);
     };
@@ -99,7 +95,7 @@ const TeamManagement = () => {
         }
 
         try {
-            await deleteDoc(doc(db, 'teams', teamId));
+            await api.delete(`/teams/${teamId}`);
             toast.success('Team deleted successfully');
             fetchTeams();
         } catch (error) {
@@ -258,10 +254,10 @@ const TeamManagement = () => {
                                     <tr key={team.id} className="border-b last:border-0 hover:bg-gray-50">
                                         <td className="p-4">
                                             <div className="flex items-center">
-                                                {team.crest && (
+                                                {team.crest_url && (
                                                     <img
                                                         className="h-8 w-8 object-contain mr-3"
-                                                        src={team.crest}
+                                                        src={team.crest_url}
                                                         alt={`${team.name} crest`}
                                                         onError={(e) => {
                                                             e.target.style.display = 'none';
@@ -280,7 +276,7 @@ const TeamManagement = () => {
                                         </td>
                                         <td className="p-4">
                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                {team.three_letter_name}
+                                                {team.tla}
                                             </span>
                                         </td>
                                         <td className="p-4 text-right">

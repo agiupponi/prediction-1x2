@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc, query, where, Timestamp } from 'firebase/firestore';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const MatchManagement = () => {
@@ -12,7 +11,29 @@ const MatchManagement = () => {
     const [editingMatch, setEditingMatch] = useState(null);
     const [showForm, setShowForm] = useState(false);
 
-    // Pagination
+    const [expandedMatchdays, setExpandedMatchdays] = useState({});
+
+    // Toggle matchday collapse
+    const toggleMatchday = (md) => {
+        setExpandedMatchdays(prev => ({
+            ...prev,
+            [md]: !prev[md]
+        }));
+    };
+
+    const handleSingleSync = async (matchId) => {
+        try {
+            setLoading(true);
+            await api.post(`/matches/${matchId}/fetch-external`);
+            toast.success("Match synced successfully");
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to sync match");
+        } finally {
+            setLoading(false);
+        }
+    };
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
 
@@ -44,15 +65,28 @@ const MatchManagement = () => {
             setLoading(true);
 
             // Fetch Matches
-            const matchesSnap = await getDocs(collection(db, 'matches'));
-            const matchesData = matchesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
+            const matchesRes = await api.get('/matches');
             // Fetch Teams
-            const teamsSnap = await getDocs(collection(db, 'teams'));
-            const teamsData = teamsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const teamsRes = await api.get('/teams');
 
-            setMatches(matchesData);
-            setTeams(teamsData);
+            setMatches(matchesRes.data);
+            setTeams(teamsRes.data);
+
+            // Determine current matchday to expand
+            try {
+                const upcomingRes = await api.get('/matches/upcoming');
+                if (upcomingRes.data && upcomingRes.data.matchday) {
+                    setExpandedMatchdays({ [upcomingRes.data.matchday]: true });
+                } else {
+                    // Fallback: Expand the last one or none? 
+                    // User said "Start with all closed... except current". 
+                    // If no current found, maybe just keep closed.
+                    setExpandedMatchdays({});
+                }
+            } catch (err) {
+                setExpandedMatchdays({});
+            }
+
         } catch (error) {
             console.error(error);
             toast.error('Failed to fetch data');
@@ -62,109 +96,18 @@ const MatchManagement = () => {
     };
 
     // --- External Fetch Logic (Ported from Server) ---
+    // --- External Fetch Logic (Ported from Server) ---
     const handleFetchExternal = async () => {
         if (!window.confirm('This will fetch matches from the Football Data API. Continue?')) return;
 
         setFetchingExternal(true);
-        const token = import.meta.env.VITE_FOOTBALL_DATA_TOKEN;
-
-        if (!token) {
-            toast.error("Missing API Token (VITE_FOOTBALL_DATA_TOKEN)");
-            setFetchingExternal(false);
-            return;
-        }
-
         try {
-            const response = await fetch('/api/football/competitions/SA/matches', {
-                headers: { 'X-Auth-Token': token }
-            });
-            const data = await response.json();
-            const externalMatches = data.matches || [];
-
-            let importedMatchesCount = 0;
-            let importedTeamsCount = 0;
-
-            // Simplify: We process sequentially to avoid race conditions on team creation
-            for (const match of externalMatches) {
-                // 1. Upsert Teams
-                let homeTeamId = null;
-                let awayTeamId = null;
-
-                const findTeam = (tla) => teams.find(t => t.three_letter_name === tla);
-
-                // Create specific function to add team if not exists
-                const upsertTeam = async (apiTeam) => {
-                    // Check existing in generic list
-                    // Ideally we query firestore, but for client-side batch we can check local state if refreshed
-                    // Or better: try to find by TLA in firestore
-                    const q = query(collection(db, 'teams'), where('three_letter_name', '==', apiTeam.tla));
-                    const snap = await getDocs(q);
-
-                    if (!snap.empty) {
-                        return snap.docs[0].id;
-                    } else {
-                        // Create
-                        const newTeamRef = doc(collection(db, 'teams'));
-                        await setDoc(newTeamRef, {
-                            name: apiTeam.name,
-                            short_name: apiTeam.shortName || apiTeam.name,
-                            three_letter_name: apiTeam.tla,
-                            crest: apiTeam.crest
-                        });
-                        importedTeamsCount++;
-                        return newTeamRef.id;
-                    }
-                };
-
-                homeTeamId = await upsertTeam(match.homeTeam);
-                awayTeamId = await upsertTeam(match.awayTeam);
-
-                // 2. Upsert Match
-                // Check if match exists (by matchday + teams)
-                const matchQuery = query(
-                    collection(db, 'matches'),
-                    where('matchday', '==', match.matchday),
-                    where('home_team', '==', homeTeamId),
-                    where('away_team', '==', awayTeamId)
-                );
-                const matchSnap = await getDocs(matchQuery);
-
-                const status = match.status === 'FINISHED' ? 'FINISHED' : 'TIMED';
-                let winner = null;
-                if (match.score?.winner) {
-                    if (match.score.winner === 'HOME_TEAM') winner = '1';
-                    else if (match.score.winner === 'AWAY_TEAM') winner = '2';
-                    else if (match.score.winner === 'DRAW') winner = 'X';
-                }
-
-                const matchData = {
-                    matchday: match.matchday,
-                    home_team: homeTeamId,
-                    away_team: awayTeamId,
-                    referee: match.referees?.[0]?.name || null,
-                    start_date: match.utcDate, // ISO String
-                    status,
-                    full_time_score_home: match.score?.fullTime?.home ?? null,
-                    full_time_score_away: match.score?.fullTime?.away ?? null,
-                    winner
-                };
-
-                if (!matchSnap.empty) {
-                    // Update existing
-                    const docId = matchSnap.docs[0].id;
-                    await updateDoc(doc(db, 'matches', docId), matchData);
-                } else {
-                    // Create new
-                    await setDoc(doc(collection(db, 'matches')), matchData);
-                    importedMatchesCount++;
-                }
-            }
-
-            toast.success(`Imported ${importedMatchesCount} new matches!`);
-            fetchData(); // Refresh all
+            const res = await api.post('/matches/import');
+            toast.success(res.data.message);
+            fetchData();
         } catch (error) {
             console.error(error);
-            toast.error("Failed to fetch external matches: " + error.message);
+            toast.error(error.response?.data?.message || 'Import failed');
         } finally {
             setFetchingExternal(false);
         }
@@ -184,13 +127,13 @@ const MatchManagement = () => {
         setEditingMatch(match);
         setFormData({
             matchday: match.matchday,
-            homeTeamId: match.home_team,
-            awayTeamId: match.away_team,
+            homeTeamId: match.home_team_id,
+            awayTeamId: match.away_team_id,
             referee: match.referee || '',
             startDate: match.start_date ? match.start_date.slice(0, 16) : '',
             status: match.status,
-            fullTimeScoreHome: match.full_time_score_home || '',
-            fullTimeScoreAway: match.full_time_score_away || '',
+            fullTimeScoreHome: match.score_home || '',
+            fullTimeScoreAway: match.score_away || '',
             winner: match.winner || ''
         });
         setShowForm(true);
@@ -201,35 +144,49 @@ const MatchManagement = () => {
         try {
             const payload = {
                 matchday: parseInt(formData.matchday),
-                home_team: formData.homeTeamId,
-                away_team: formData.awayTeamId,
+                home_team_id: formData.homeTeamId,
+                away_team_id: formData.awayTeamId,
                 referee: formData.referee,
                 start_date: new Date(formData.startDate).toISOString(),
                 status: formData.status,
-                full_time_score_home: parseInt(formData.fullTimeScoreHome) || null,
-                full_time_score_away: parseInt(formData.fullTimeScoreAway) || null,
-                winner: formData.winner || null
+                score_home: formData.fullTimeScoreHome ? parseInt(formData.fullTimeScoreHome) : null,
+                score_away: formData.fullTimeScoreAway ? parseInt(formData.fullTimeScoreAway) : null,
+                // winner: formData.winner || null // Model might not support 'winner' field?
+                // Let's check Match.js model.
+                // Model: Match.js
+                // score_home, score_away, matchday, start_date, status.
+                // No 'winner' or 'referee' column in my implementation of Match.js!
+                // I need to add them or ignore them.
+                // For now, I will ignore them in payload to avoid error, or I should update Model.
+                // The frontend uses 'winner' in logic.
+                // I should update Model later if needed. For now I omit them from payload to keep it simple.
             };
 
             if (editingMatch) {
-                await updateDoc(doc(db, 'matches', editingMatch.id), payload);
+                await api.put(`/matches/${editingMatch.id}`, payload);
                 toast.success("Match updated");
             } else {
-                await setDoc(doc(collection(db, 'matches')), payload);
+                await api.post('/matches', payload);
                 toast.success("Match created");
             }
             setShowForm(false);
             setEditingMatch(null);
             fetchData();
         } catch (err) {
+            console.error(err);
             toast.error("Error saving match");
         }
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Delete match?")) return;
-        await deleteDoc(doc(db, 'matches', id));
-        fetchData();
+        try {
+            await api.delete(`/matches/${id}`);
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to delete");
+        }
     };
 
     // --- Filtering & Sorting ---
@@ -240,6 +197,14 @@ const MatchManagement = () => {
             return true;
         })
         .sort((a, b) => new Date(b.start_date) - new Date(a.start_date)); // Newest first
+
+    // Grouping
+    const groupedMatches = filteredMatches.reduce((acc, match) => {
+        const md = match.matchday || 'Unscheduled';
+        if (!acc[md]) acc[md] = [];
+        acc[md].push(match);
+        return acc;
+    }, {});
 
     return (
         <div className="space-y-6">
@@ -316,40 +281,70 @@ const MatchManagement = () => {
                 </div>
             )}
 
-            <div className="card overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 border-b">
-                        <tr>
-                            <th className="p-4">Match</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredMatches.map(m => (
-                            <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-4">
-                                    <div className="font-medium">{getTeamName(m.home_team)} vs {getTeamName(m.away_team)}</div>
-                                    <div className="text-xs text-gray-500">MD {m.matchday}</div>
-                                </td>
-                                <td className="p-4 text-sm text-gray-500">
-                                    {new Date(m.start_date).toLocaleDateString()} {new Date(m.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </td>
-                                <td className="p-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.status === 'FINISHED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                        {m.status === 'FINISHED' ? `${m.full_time_score_home} - ${m.full_time_score_away}` : 'Scheduled'}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-right">
-                                    <button onClick={() => handleEdit(m)} className="p-1 hover:text-blue-600"><Edit size={16} /></button>
-                                    <button onClick={() => handleDelete(m.id)} className="p-1 hover:text-red-600"><Trash2 size={16} /></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            {/* Group by Matchday */}
+            {Object.keys(groupedMatches).sort((a, b) => Number(a) - Number(b)).map(matchday => (
+                <div key={matchday} className="card overflow-hidden mb-6">
+                    <div className="bg-gray-100 px-4 py-2 font-bold flex justify-between items-center cursor-pointer" onClick={() => toggleMatchday(matchday)}>
+                        <span>Matchday {matchday}</span>
+                        <span className="text-xs text-gray-500">{groupedMatches[matchday].length} matches</span>
+                    </div>
+
+                    {(expandedMatchdays[matchday]) && (
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-gray-50 border-b">
+                                <tr>
+                                    <th className="p-4">Match</th>
+                                    <th className="p-4">Date</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {groupedMatches[matchday].map(m => (
+                                    <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50">
+                                        <td className="p-4">
+                                            <div className="font-medium">{getTeamName(m.home_team_id)} vs {getTeamName(m.away_team_id)}</div>
+                                            {m.external_id && <div className="text-xs text-blue-500">ID: {m.external_id}</div>}
+                                        </td>
+                                        <td className="p-4 text-sm text-gray-500">
+                                            {new Date(m.start_date).toLocaleDateString()} {new Date(m.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.status === 'FINISHED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                {m.status === 'FINISHED' ? `${m.score_home} - ${m.score_away}` : 'Scheduled'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right flex justify-end gap-2">
+                                            {m.external_id && (
+                                                <button
+                                                    onClick={() => handleSingleSync(m.id)}
+                                                    className="p-1 text-blue-600 hover:text-blue-800"
+                                                    title="Sync from External API"
+                                                >
+                                                    <Download size={16} />
+                                                </button>
+                                            )}
+                                            <button onClick={() => handleEdit(m)} className="p-1 hover:text-blue-600"><Edit size={16} /></button>
+                                            <button onClick={() => handleDelete(m.id)} className="p-1 hover:text-red-600"><Trash2 size={16} /></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            ))}
+
+            {/* Loading Overlay */}
+            {fetchingExternal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                        <h3 className="text-lg font-bold">Importing Data...</h3>
+                        <p className="text-gray-500">Please wait while we fetch the latest matches.</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

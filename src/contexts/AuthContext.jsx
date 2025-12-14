@@ -72,8 +72,20 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Optional: fetch additional user data (role) from Firestore and attach to user object
-                // For now, simpler is better. We can fetch role in protected routes or components.
+                try {
+                    const userRef = doc(db, "users", user.uid);
+                    const docSnap = await getDoc(userRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        user.role = data.role;
+                        user.first_name = data.first_name;
+                        user.last_name = data.last_name;
+                        // user.displayName is managed by Auth, but we can check DB precedence if needed. 
+                        // For now keep Auth displayName as primary.
+                    }
+                } catch (err) {
+                    console.error("Error fetching user details", err);
+                }
                 setCurrentUser(user);
             } else {
                 setCurrentUser(null);

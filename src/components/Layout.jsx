@@ -99,14 +99,14 @@ export default function Layout({ children }) {
                             <img src={currentUser.photoURL} alt="User" style={{ width: "100%", height: "100%", borderRadius: "9999px", objectFit: "cover" }} />
                         ) : (
                             <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "white" }}>
-                                {currentUser?.displayName?.[0] || "U"}
+                                {currentUser?.displayName?.[0] || currentUser?.first_name?.[0] || currentUser?.email?.[0]?.toUpperCase() || "U"}
                             </span>
                         )}
                     </div>
                 </div>
                 <div style={{ marginLeft: "0.75rem" }}>
                     <p style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-gray-700)", margin: 0 }}>
-                        {currentUser?.displayName || "User"}
+                        {currentUser?.displayName || (currentUser?.first_name && currentUser?.last_name ? `${currentUser.first_name} ${currentUser.last_name}` : "User")}
                     </p>
                     <p style={{ fontSize: "0.75rem", color: "var(--text-gray-500)", margin: 0 }}>
                         {currentUser?.email}
@@ -167,7 +167,7 @@ export default function Layout({ children }) {
 
                     <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "space-between" }}>
                         <span style={{ fontSize: "0.875rem", color: "var(--text-gray-500)" }}>
-                            Welcome, {currentUser?.displayName}!
+                            Welcome, {currentUser?.displayName || (currentUser?.first_name && currentUser?.last_name ? `${currentUser.first_name} ${currentUser.last_name}` : "User")}!
                         </span>
                         <button
                             onClick={toggleTheme}

@@ -56,14 +56,14 @@ export default function Login() {
                             <Mail size={16} />
                             <label>Email</label>
                         </div>
-                        <input type="email" ref={emailRef} required placeholder="john@example.com" />
+                        <input style={{ maxWidth: "374px" }} type="email" ref={emailRef} required placeholder="john@example.com" />
                     </div>
                     <div className="form-group">
                         <div className="flex items-center gap-2 mb-2" style={{ color: "var(--text-secondary)" }}>
                             <Lock size={16} />
                             <label>Password</label>
                         </div>
-                        <input type="password" ref={passwordRef} required placeholder="••••••••" />
+                        <input style={{ maxWidth: "374px" }} type="password" ref={passwordRef} required placeholder="••••••••" />
                     </div>
                     <button disabled={loading} className="btn btn-primary mt-4" type="submit">
                         Log In

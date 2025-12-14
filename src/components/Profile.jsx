@@ -90,28 +90,28 @@ export default function Profile() {
                     <input type="file" id="photo-upload" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} accept="image/*" />
                 </div>
 
-                <form onSubmit={handleUpdateProfile} className="flex flex-col gap-4">
+                <form onSubmit={handleUpdateProfile} className="flex flex-col gap-4 pb-4">
                     <div className="form-group">
-                        <div className="flex items-center gap-2 mb-2" style={{ color: "var(--text-secondary)" }}>
+                        <div className="flex items-center gap-2 mb-2 text-gray-500">
                             <Mail size={16} />
                             <label>Email</label>
                         </div>
-                        <input type="email" value={currentUser?.email} disabled style={{ opacity: 0.7, cursor: "not-allowed" }} />
+                        <input type="email" value={currentUser?.email} disabled style={{ opacity: 0.7, cursor: "not-allowed", maxWidth: "374px" }} />
                     </div>
                     <div className="form-group">
-                        <div className="flex items-center gap-2 mb-2" style={{ color: "var(--text-secondary)" }}>
+                        <div className="flex items-center gap-2 mb-2 text-gray-500">
                             <User size={16} />
                             <label>Display Name</label>
                         </div>
-                        <input type="text" ref={nameRef} defaultValue={currentUser?.displayName} placeholder="Display Name" />
+                        <input style={{ maxWidth: "374px" }} type="text" ref={nameRef} defaultValue={currentUser?.displayName} placeholder="Display Name" />
                     </div>
 
-                    <button disabled={loading} className="btn btn-primary mt-4" type="submit">
+                    <button disabled={loading} className="btn btn-primary w-full mt-4" type="submit">
                         Update Profile
                     </button>
                 </form>
 
-                <div className="w-full text-center mt-4">
+                <div className="w-full text-center mt-3">
                     <button onClick={handleLogout} className="btn btn-secondary w-full">
                         Log Out
                     </button>

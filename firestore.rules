@@ -32,6 +32,9 @@ service cloud.firestore {
         (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))) ||
         isAdmin()
       );
+      
+      // DELETE: Only admins can delete users
+      allow delete: if isSignedIn() && isAdmin();
     }
 
     match /matches/{matchId} {
