@@ -13,8 +13,8 @@ const teamRoutes = require('./routes/teams');
 const matchRoutes = require('./routes/matches');
 const predictionRoutes = require('./routes/predictions');
 
-// Sync Database (ensure schema updates)
-sequelize.sync({ alter: true })
+// Sync Database (ensure tables exist, do not alter schema)
+sequelize.sync()
     .then(() => console.log('Database & tables synced!'))
     .catch(err => console.error('Error syncing database:', err));
 
