@@ -3,21 +3,14 @@ const Match = require('../models/Match');
 const admin = require('../config/firebase');
 const { sequelize } = require('../config/db');
 
+const Standing = require('../models/Standing');
+
 exports.getLeaderboard = async (req, res) => {
     try {
-        // Raw SQL to get sum of correct predictions per user
-        // We join predictions with matches, check if winner == prediction
-        const [results] = await sequelize.query(`
-            SELECT 
-                p.user_id, 
-                COUNT(*) as points 
-            FROM predictions p 
-            JOIN matches m ON p.match_id = m.id 
-            WHERE m.status = 'FINISHED' 
-            AND m.winner = p.prediction 
-            GROUP BY p.user_id 
-            ORDER BY points DESC
-        `);
+        // Fetch from Database View 'standing'
+        const results = await Standing.findAll({
+            order: [['rank', 'ASC']]
+        });
 
         // Fetch all users from Firestore to map names
         const usersSnapshot = await admin.firestore().collection('users').get();
@@ -27,14 +20,25 @@ exports.getLeaderboard = async (req, res) => {
             usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
         });
 
+        // Map database view results to frontend format
+        // View has: rank, user_id, points
         const leaderboard = results
-            .filter(entry => usersMap[entry.user_id]) // Filter out users not found in Firestore
-            .map((entry, index) => ({
-                rank: index + 1,
-                user_id: entry.user_id,
-                points: entry.points,
-                displayName: usersMap[entry.user_id]
-            }));
+            .map(entry => {
+                const uid = entry.user_id;
+                // If user not in firestore (deleted?), name is Unknown but we still show them if they are in standing?
+                // Previous logic filtered them out. Let's keep filtering or show 'Unknown'.
+                // User requirement: "Utilizzala per caricare la classifica". 
+                // The view contains user_ids.
+                if (!usersMap[uid]) return null;
+
+                return {
+                    rank: parseInt(entry.rank), // items from view might be strings
+                    user_id: uid,
+                    points: entry.points,
+                    displayName: usersMap[uid]
+                };
+            })
+            .filter(e => e !== null);
 
         res.json(leaderboard);
     } catch (error) {
