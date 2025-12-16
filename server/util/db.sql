@@ -101,3 +101,35 @@ AS SELECT row_number() OVER (ORDER BY (count(*)) DESC) AS rank,
 
 ALTER TABLE standing OWNER TO neondb_owner;
 GRANT ALL ON TABLE standing TO neondb_owner;
+
+-- public.odd_standings source
+
+CREATE OR REPLACE VIEW odd_standings
+AS SELECT m.matchday,
+    p.user_id,
+    sum(o.odd) AS points
+   FROM matches m
+     JOIN predictions p ON m.id = p.match_id AND m.winner::text = p.prediction::text
+     JOIN odds o ON o.id = m.id AND o.prediction::text = p.prediction::text
+  GROUP BY p.user_id, m.matchday;
+
+-- Permissions
+
+ALTER TABLE odd_standings OWNER TO neondb_owner;
+GRANT ALL ON TABLE odd_standings TO neondb_owner;
+
+
+-- public.standings source
+
+CREATE OR REPLACE VIEW standings
+AS SELECT m.matchday,
+    p.user_id,
+    count(*) AS points
+   FROM matches m
+     JOIN predictions p ON m.id = p.match_id AND m.winner::text = p.prediction::text
+  GROUP BY p.user_id, m.matchday;
+
+-- Permissions
+
+ALTER TABLE standings OWNER TO neondb_owner;
+GRANT ALL ON TABLE standings TO neondb_owner;
