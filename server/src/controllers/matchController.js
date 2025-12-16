@@ -1,5 +1,6 @@
 const Match = require('../models/Match');
 const Team = require('../models/Team');
+const Odd = require('../models/Odd');
 const { sequelize } = require('../config/db');
 
 exports.getAllMatches = async (req, res) => {
@@ -294,3 +295,15 @@ exports.fetchExternalMatch = async (req, res) => {
     }
 };
 
+exports.getMatchOdds = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const odds = await Odd.findAll({
+            where: { id: id } // 'id' in Odd model is mapped to match_id
+        });
+        res.json(odds);
+    } catch (error) {
+        console.error("Get Odds Error:", error);
+        res.status(500).json({ message: "Failed to fetch odds" });
+    }
+};
