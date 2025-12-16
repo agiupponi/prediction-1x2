@@ -727,7 +727,7 @@ label {
 }
 
 .bg-green-200 {
-  background-color: lightgreen;
+  background-color: #eeffee;
 }
 
 .bg-green-700 {
@@ -739,7 +739,7 @@ label {
 }
 
 .bg-red-600 {
-  background-color: red;
+  background-color: #cc0000;
 }
 
 .bg-primary-600 {
@@ -787,8 +787,8 @@ label {
   border-color: var(--primary-600);
 }
 
-.border-green-300 {
-  border-color: #86efac;
+.border-green-200 {
+  border-color: #eeffee;
 }
 
 .border-green-700 {
@@ -796,7 +796,7 @@ label {
 }
 
 .border-red-600 {
-  border-color: red;
+  border-color: #cc0000;
 }
 
 /* Additional flex utilities */
@@ -949,6 +949,11 @@ label {
 
 .-mb-px {
   margin-bottom: -1px;
+}
+
+/* Additional width utilities */
+.w-33 {
+  width: 33%;
 }
 
 /* Text alignment */

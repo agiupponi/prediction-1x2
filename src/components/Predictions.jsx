@@ -11,6 +11,8 @@ export default function Predictions() {
     const [loading, setLoading] = useState(true);
     const [currentMatchday, setCurrentMatchday] = useState(null);
     const [teams, setTeams] = useState({});
+    const [expandedMatchId, setExpandedMatchId] = useState(null);
+    const [oddsData, setOddsData] = useState({});
 
     const [availableMatchdays, setAvailableMatchdays] = useState([]);
 
@@ -116,6 +118,23 @@ export default function Predictions() {
         }
     };
 
+    const toggleMatchExpand = async (matchId) => {
+        if (expandedMatchId === matchId) {
+            setExpandedMatchId(null);
+        } else {
+            setExpandedMatchId(matchId);
+            if (!oddsData[matchId]) {
+                try {
+                    const res = await api.get(`/matches/${matchId}/odds`);
+                    setOddsData(prev => ({ ...prev, [matchId]: res.data }));
+                } catch (error) {
+                    console.error("Failed to fetch odds", error);
+                    // toast.error("Could not load odds"); // Optional, maybe too noisy
+                }
+            }
+        }
+    };
+
     const getTeam = (id) => teams[id] || { name: 'Unknown', short_name: 'UNK', crest_url: '' };
 
     const filteredMatches = matches
@@ -151,7 +170,7 @@ export default function Predictions() {
                 return base + " border-red-600 shadow-md cursor-default bg-red-600 text-white";
             }
             if (!isSelected && winner === type) { // Winner but not selected
-                return base + " border-green-300 shadow-md cursor-default bg-green-200 text-black";
+                return base + " border-green-200 shadow-md cursor-default bg-green-200 text-black";
             }
             return base + " opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200";
         }
@@ -259,7 +278,12 @@ export default function Predictions() {
                     return (
                         <div
                             key={match.id}
-                            className={`card match-card p-4 hover:shadow-md transition-shadow ${getCardBackgroundClass(match)}`}
+                            className={`card match-card p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                            onClick={(e) => {
+                                // Prevent toggle when clicking buttons
+                                if (e.target.tagName === 'BUTTON') return;
+                                toggleMatchExpand(match.id);
+                            }}
                         >
                             <div className="flex justify-between items-start mb-4 text-xs text-gray-500 uppercase tracking-wide font-semibold">
                                 <div className="flex items-center gap-1">
@@ -278,14 +302,13 @@ export default function Predictions() {
                             {/* Referee - removed from display as backend model doesn't explicitly have it right now, could add if needed */}
 
                             {/* Teams & Score */}
-                            {/* Teams & Score */}
                             <div className="flex items-center justify-between mb-6 px-2">
-                                <div className="flex flex-col items-center justify-center gap-1 w-1/3">
+                                <div className="flex flex-col items-center justify-center gap-1 w-33">
                                     {home.crest_url && <img src={home.crest_url} alt={home.short_name} className="w-8 h-8 object-contain" />}
                                     <span className="font-bold text-center leading-tight text-sm">{home.short_name || home.name}</span>
                                 </div>
 
-                                <div className="flex flex-col items-center justify-center w-1/3">
+                                <div className="flex flex-col items-center justify-center w-33">
                                     {match.status === 'FINISHED' ? (
                                         <>
                                             <div className="text-2xl font-black text-gray-800 tracking-widest">
@@ -302,7 +325,7 @@ export default function Predictions() {
                                     )}
                                 </div>
 
-                                <div className="flex flex-col items-center justify-center gap-1 w-1/3">
+                                <div className="flex flex-col items-center justify-center gap-1 w-33">
                                     {away.crest_url && <img src={away.crest_url} alt={away.short_name} className="w-8 h-8 object-contain" />}
                                     <span className="font-bold text-center leading-tight text-sm">{away.short_name || away.name}</span>
                                 </div>
@@ -333,10 +356,45 @@ export default function Predictions() {
                                 </button>
                             </div>
 
-                            {/* Prediction Result Logic */}
+                            {/* Restored: Correct Prediction Logic */}
                             {isLocked && predictions[match.id] && predictions[match.id] === winner && (
                                 <div className="mt-3 text-center text-sm font-bold p-2 rounded bg-green-100 text-green-700">
                                     Correct Prediction! (+1 Pt)
+                                </div>
+                            )}
+
+                            {/* New: Odds / Expanded View */}
+                            {expandedMatchId === match.id && (
+                                <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300 cursor-default" onClick={(e) => e.stopPropagation()}>
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Community Predictions</h4>
+                                    {oddsData[match.id] && oddsData[match.id].length > 0 ? (
+                                        <div className="space-y-2">
+                                            {oddsData[match.id].map(odd => {
+                                                const type = odd.prediction;
+                                                const partial = odd.partial_prediction;
+                                                const total = odd.total_predictions;
+                                                const oddValue = odd.odd; // Assuming 'odd' field exists from DB model
+
+                                                return (
+                                                    <div key={type} className="flex items-center justify-between text-sm">
+                                                        <span className="font-bold w-4 text-center">{type}</span>
+                                                        <div className="flex-1 mx-3 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                            <div
+                                                                className={`h-full ${type === '1' ? 'bg-blue-500' : type === 'X' ? 'bg-gray-500' : 'bg-red-500'}`}
+                                                                style={{ width: `${total ? (partial / total) * 100 : 0}%` }}
+                                                            />
+                                                        </div>
+                                                        <div className="flex gap-4 text-xs font-mono text-gray-600">
+                                                            <span>{partial}/{total}</span>
+                                                            <span className="font-bold text-black">{oddValue ? Number(oddValue).toFixed(2) : '-'}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center text-gray-400 text-xs py-2">No predictions yet</div>
+                                    )}
                                 </div>
                             )}
                         </div>

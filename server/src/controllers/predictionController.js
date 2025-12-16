@@ -141,7 +141,11 @@ exports.upsertPrediction = async (req, res) => {
         }
 
         if (new Date(match.start_date) < new Date()) {
-            return res.status(400).json({ message: 'Match has already started' });
+            return res.status(403).json({ message: 'Match has already started' });
+        }
+
+        if (['IN_PLAY', 'PAUSED', 'FINISHED'].includes(match.status)) {
+            return res.status(403).json({ message: 'Match is already in progress or finished' });
         }
 
         // Check existing validation
