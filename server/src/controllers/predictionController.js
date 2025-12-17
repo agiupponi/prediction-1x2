@@ -3,14 +3,17 @@ const Match = require('../models/Match');
 const admin = require('../config/firebase');
 const { sequelize } = require('../config/db');
 
-const Standing = require('../models/Standing');
+
 
 exports.getLeaderboard = async (req, res) => {
     try {
-        // Fetch from Database View 'standing'
-        const results = await Standing.findAll({
-            order: [['rank', 'ASC']]
-        });
+        // Fetch from Database View 'standings' aggregated by user
+        const [results] = await sequelize.query(`
+            SELECT user_id, SUM(points) as points 
+            FROM standings 
+            GROUP BY user_id 
+            ORDER BY points DESC
+        `);
 
         // Fetch all users from Firestore to map names
         const usersSnapshot = await admin.firestore().collection('users').get();
@@ -20,21 +23,18 @@ exports.getLeaderboard = async (req, res) => {
             usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
         });
 
-        // Map database view results to frontend format
-        // View has: rank, user_id, points
+        // Map database results to frontend format
+        let rankCounter = 1;
         const leaderboard = results
             .map(entry => {
                 const uid = entry.user_id;
-                // If user not in firestore (deleted?), name is Unknown but we still show them if they are in standing?
-                // Previous logic filtered them out. Let's keep filtering or show 'Unknown'.
-                // User requirement: "Utilizzala per caricare la classifica". 
-                // The view contains user_ids.
+
                 if (!usersMap[uid]) return null;
 
                 return {
-                    rank: parseInt(entry.rank), // items from view might be strings
+                    rank: rankCounter++,
                     user_id: uid,
-                    points: entry.points,
+                    points: parseInt(entry.points || 0), // Sum might be string in some drivers
                     displayName: usersMap[uid]
                 };
             })
@@ -44,6 +44,48 @@ exports.getLeaderboard = async (req, res) => {
     } catch (error) {
         console.error("Leaderboard error:", error);
         res.status(500).json({ message: "Error fetching leaderboard" });
+    }
+};
+
+exports.getOddLeaderboard = async (req, res) => {
+    try {
+        // Fetch from Database View 'odd_standings' aggregated by user
+        const [results] = await sequelize.query(`
+            SELECT user_id, SUM(points) as points 
+            FROM odd_standings 
+            GROUP BY user_id 
+            ORDER BY points DESC
+        `);
+
+        // Fetch all users from Firestore to map names
+        const usersSnapshot = await admin.firestore().collection('users').get();
+        const usersMap = {};
+        usersSnapshot.forEach(doc => {
+            const data = doc.data();
+            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
+        });
+
+        // Map database results to frontend format
+        let rankCounter = 1;
+        const leaderboard = results
+            .map(entry => {
+                const uid = entry.user_id;
+
+                if (!usersMap[uid]) return null;
+
+                return {
+                    rank: rankCounter++,
+                    user_id: uid,
+                    points: parseFloat(entry.points || 0).toFixed(2),
+                    displayName: usersMap[uid]
+                };
+            })
+            .filter(e => e !== null);
+
+        res.json(leaderboard);
+    } catch (error) {
+        console.error("Odds Leaderboard error:", error);
+        res.status(500).json({ message: "Error fetching odds leaderboard" });
     }
 };
 

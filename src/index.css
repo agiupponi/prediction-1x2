@@ -923,6 +923,10 @@ label {
 }
 
 /* Additional margin utilities */
+.m-4 {
+  margin: 1rem;
+}
+
 .ml-2 {
   margin-left: 0.5rem;
 }
