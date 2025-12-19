@@ -10,6 +10,8 @@ import Dashboard from './components/Dashboard'; // Import extracted component
 import Predictions from './components/Predictions';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import PolicyGuard from './components/PolicyGuard';
 
 // Dashboard component extracted to src/components/Dashboard.jsx
 
@@ -29,34 +31,43 @@ function App() {
                         {/* Public Routes */}
                         <Route path="/signup" element={<Signup />} />
                         <Route path="/login" element={<Login />} />
+                        <Route path="/privacy" element={<PrivacyPolicy />} />
 
                         {/* Private Routes with Layout */}
                         <Route path="/" element={
                             <PrivateRoute>
-                                <Layout>
-                                    <Dashboard />
-                                </Layout>
+                                <PolicyGuard>
+                                    <Layout>
+                                        <Dashboard />
+                                    </Layout>
+                                </PolicyGuard>
                             </PrivateRoute>
                         } />
                         <Route path="/matches" element={
                             <PrivateRoute>
-                                <Layout>
-                                    <Predictions />
-                                </Layout>
+                                <PolicyGuard>
+                                    <Layout>
+                                        <Predictions />
+                                    </Layout>
+                                </PolicyGuard>
                             </PrivateRoute>
                         } />
                         <Route path="/profile" element={
                             <PrivateRoute>
-                                <Layout>
-                                    <Profile />
-                                </Layout>
+                                <PolicyGuard>
+                                    <Layout>
+                                        <Profile />
+                                    </Layout>
+                                </PolicyGuard>
                             </PrivateRoute>
                         } />
                         <Route path="/admin" element={
                             <PrivateRoute>
-                                <Layout>
-                                    <AdminDashboard />
-                                </Layout>
+                                <PolicyGuard>
+                                    <Layout>
+                                        <AdminDashboard />
+                                    </Layout>
+                                </PolicyGuard>
                             </PrivateRoute>
                         } />
 

@@ -9,7 +9,7 @@ import {
     onAuthStateChanged,
     updateProfile
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 const AuthContext = React.createContext();
 
@@ -22,17 +22,23 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     // Sign up with Email/Password
-    async function signup(email, password, displayName) {
+    async function signup(email, password, displayName, privacyAccepted = false, cookieAccepted = false) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         // Update profile with display name
         await updateProfile(userCredential.user, { displayName });
-        // Create user document in Firestore
-        await setDoc(doc(db, "users", userCredential.user.uid), {
+
+        const userData = {
             email: userCredential.user.email,
             displayName: displayName,
             role: "user", // Default role
             createdAt: new Date().toISOString()
-        });
+        };
+
+        if (privacyAccepted) userData.privacyAcceptedAt = new Date().toISOString();
+        if (cookieAccepted) userData.cookieAcceptedAt = new Date().toISOString();
+
+        // Create user document in Firestore
+        await setDoc(doc(db, "users", userCredential.user.uid), userData);
         return userCredential;
     }
 
@@ -58,10 +64,30 @@ export function AuthProvider({ children }) {
                 photoURL: user.photoURL,
                 role: "user",
                 createdAt: new Date().toISOString()
+                // Google sign in users will be caught by PolicyGuard to accept policies
             });
         }
 
         return userCredential;
+    }
+
+    // Accept Policies for existing users
+    async function acceptPolicies() {
+        if (!currentUser) return;
+        const userRef = doc(db, "users", currentUser.uid);
+        const timestamp = new Date().toISOString();
+
+        await updateDoc(userRef, {
+            privacyAcceptedAt: timestamp,
+            cookieAcceptedAt: timestamp
+        });
+
+        // Update local state immediately
+        setCurrentUser(prev => ({
+            ...prev,
+            privacyAcceptedAt: timestamp,
+            cookieAcceptedAt: timestamp
+        }));
     }
 
     // Logout
@@ -80,6 +106,8 @@ export function AuthProvider({ children }) {
                         user.role = data.role;
                         user.first_name = data.first_name;
                         user.last_name = data.last_name;
+                        user.privacyAcceptedAt = data.privacyAcceptedAt;
+                        user.cookieAcceptedAt = data.cookieAcceptedAt;
                         // user.displayName is managed by Auth, but we can check DB precedence if needed. 
                         // For now keep Auth displayName as primary.
                     }
@@ -101,7 +129,8 @@ export function AuthProvider({ children }) {
         signup,
         login,
         logout,
-        googleSignIn
+        googleSignIn,
+        acceptPolicies
     };
 
     return (

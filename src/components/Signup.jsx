@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Mail, Lock, User, Chrome } from "lucide-react";
+import { Mail, Lock, User, Chrome, CheckSquare } from "lucide-react";
 
 export default function Signup() {
     const emailRef = useRef();
@@ -12,6 +12,8 @@ export default function Signup() {
     const { signup, googleSignIn } = useAuth();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [cookieAccepted, setCookieAccepted] = useState(false);
     const navigate = useNavigate();
 
     async function handleSubmit(e) {
@@ -21,10 +23,20 @@ export default function Signup() {
             return setError("Passwords do not match");
         }
 
+        if (!privacyAccepted || !cookieAccepted) {
+            return setError("You must accept both Privacy Policy and Cookie Policy to sign up.");
+        }
+
         try {
             setError("");
             setLoading(true);
-            await signup(emailRef.current.value, passwordRef.current.value, nameRef.current.value);
+            await signup(
+                emailRef.current.value,
+                passwordRef.current.value,
+                nameRef.current.value,
+                privacyAccepted,
+                cookieAccepted
+            );
             toast.success("Account created!");
             navigate("/");
         } catch (err) {
@@ -85,6 +97,28 @@ export default function Signup() {
                         </div>
                         <input type="password" ref={passwordConfirmRef} required placeholder="••••••••" />
                     </div>
+
+                    <div className="flex flex-col gap-2 mt-2 text-sm">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={privacyAccepted}
+                                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                className="checkbox checkbox-primary"
+                            />
+                            <span>I accept the <Link to="/privacy" target="_blank" className="link link-primary">Privacy Policy</Link></span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={cookieAccepted}
+                                onChange={(e) => setCookieAccepted(e.target.checked)}
+                                className="checkbox checkbox-primary"
+                            />
+                            <span>I accept the <Link to="/privacy" target="_blank" className="link link-primary">Cookie Policy</Link></span>
+                        </label>
+                    </div>
+
                     <button disabled={loading} className="btn btn-primary mt-4" type="submit">
                         Sign Up
                     </button>
