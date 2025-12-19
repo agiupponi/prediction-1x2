@@ -8,10 +8,10 @@ const PrivacyPolicy = () => {
             <Link to="/" className="btn btn-ghost mb-4 flex items-center gap-2">
                 <ArrowLeft size={16} /> Back to Home
             </Link>
-            
+
             <div className="glass-card p-8">
                 <h1 className="text-3xl font-bold mb-6">Privacy Policy e Cookie Policy</h1>
-                
+
                 <p className="text-sm opacity-75 mb-8">Ultimo aggiornamento: {new Date().toLocaleDateString()}</p>
 
                 <div className="space-y-6 text-justify">
@@ -20,15 +20,16 @@ const PrivacyPolicy = () => {
                     <section>
                         <h2 className="text-xl font-semibold mb-3 text-primary">1. Titolare del Trattamento</h2>
                         <p>Il titolare del trattamento dei dati è:</p>
-                        <p><strong>[Nome del Titolare]</strong><br/>
-                        [Indirizzo]<br/>
-                        Email di contatto: [Email di Contatto]</p>
+                        <p><strong>Alessandro Giupponi</strong><br />
+                            Via Piacenza, 127<br />
+                            26013 Crema (CR)<br />
+                            Email di contatto: <a href="mailto:ale.giupponi@gmail.com">alessandro.giupponi@gmail.com</a></p>
                     </section>
 
                     <section>
                         <h2 className="text-xl font-semibold mb-3 text-primary">2. Tipologie di Dati raccolti</h2>
                         <p className="mb-2">Durante l'utilizzo della nostra Applicazione, potremmo raccogliere le seguenti tipologie di dati:</p>
-                        
+
                         <h3 className="font-medium mt-2">a. Dati forniti volontariamente dall'utente</h3>
                         <ul className="list-disc pl-6 mb-2 space-y-1">
                             <li><strong>Dati di registrazione:</strong> Indirizzo email, password (criptata), nome utente.</li>
@@ -72,7 +73,7 @@ const PrivacyPolicy = () => {
                     <section>
                         <h2 className="text-xl font-semibold mb-3 text-primary">6. Cookie Policy</h2>
                         <p>Questa Applicazione utilizza cookie e tecnologie simili per garantire il corretto funzionamento e migliorare l'esperienza.</p>
-                        
+
                         <h3 className="font-medium mt-3 mb-1">Tipologie di cookie utilizzati</h3>
                         <ul className="list-disc pl-6 space-y-1">
                             <li><strong>Cookie Tecnici (Essenziali):</strong> Necessari per il funzionamento dell'app (es. sessione di accesso). Non richiedono consenso.</li>

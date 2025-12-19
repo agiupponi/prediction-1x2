@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { Users, BarChart3, Settings, Eye, Edit, Trash2, Shield, Trophy } from "lucide-react";
+import { Users, BarChart3, Settings, Eye, Edit, Trash2, Shield, Trophy, X } from "lucide-react";
 import toast from "react-hot-toast";
 import TeamManagement from "./TeamManagement";
 import MatchManagement from "./MatchManagement";
@@ -333,50 +333,63 @@ export default function AdminDashboard() {
 
             {/* Edit User Modal */}
             {editingUser && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-                        <h3 className="text-lg font-bold mb-4">Edit User</h3>
+                <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                    <div className="glass-card max-w-md w-half p-6 relative animate-in fade-in zoom-in duration-300 border border-white/10 shadow-2xl">
+                        <button
+                            onClick={() => setEditingUser(null)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+
+                        <h3 className="text-xl font-bold mb-6 text-white border-b border-white-10 pb-2 text-gray-900">Edit User</h3>
+
                         <form onSubmit={handleUpdateUser} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Display Name (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={editingUser.displayName || ''}
-                                    onChange={e => setEditingUser({ ...editingUser, displayName: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                />
-                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">First Name</label>
+                                    <label className="block text-sm font-medium text-gray-900 mb-1">Display Name</label>
+                                    <input
+                                        type="text"
+                                        value={editingUser.displayName || ''}
+                                        onChange={e => setEditingUser({ ...editingUser, displayName: e.target.value })}
+                                        className="w-available rounded-md border-gray-300 shadow-sm p-2 text-gray-900 bg-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600"
+                                        placeholder="Display Name"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-1">First Name</label>
                                     <input
                                         type="text"
                                         value={editingUser.first_name || ''}
                                         onChange={e => setEditingUser({ ...editingUser, first_name: e.target.value })}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                        className="w-available rounded-md border-gray-300 shadow-sm p-2 text-gray-900 bg-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600"
+                                        placeholder="First Name"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                                    <label className="block text-sm font-medium text-gray-900 mb-1">Last Name</label>
                                     <input
                                         type="text"
                                         value={editingUser.last_name || ''}
                                         onChange={e => setEditingUser({ ...editingUser, last_name: e.target.value })}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                        className="w-available rounded-md border-gray-300 shadow-sm p-2 text-gray-900 bg-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600"
+                                        placeholder="Last Name"
                                     />
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 mt-6">
+
+                            <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white-10">
                                 <button
                                     type="button"
                                     onClick={() => setEditingUser(null)}
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                    className="px-4 py-2 border border-white-10 rounded-md text-gray-300 hover:bg-white-5 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+                                    className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 shadow-lg shadow-primary/20 transition-colors"
                                 >
                                     Save Changes
                                 </button>

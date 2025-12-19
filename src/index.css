@@ -447,6 +447,14 @@ label {
   width: 100%;
 }
 
+.w-half {
+  width: 50%;
+}
+
+.w-available {
+  width: -webkit-fill-available;
+}
+
 .h-full {
   height: 100%;
 }
@@ -456,6 +464,10 @@ label {
 }
 
 /* Typography */
+.text-decoration-none {
+  text-decoration: none !important;
+}
+
 .text-center {
   text-align: center;
 }
@@ -1027,4 +1039,127 @@ label {
 
 .border-amber-500 {
   border-color: #f59e0b;
+}
+
+/* --- Added for Policy Guard (Missing Tailwind Utilities) --- */
+.fixed {
+  position: fixed;
+}
+
+.inset-0 {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.z-50 {
+  z-index: 50;
+}
+
+.z-max {
+  z-index: 9999;
+}
+
+.bg-black-90 {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.bg-black-50 {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.relative {
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.top-4 {
+  top: 1rem;
+}
+
+.right-4 {
+  right: 1rem;
+}
+
+.pointer-events-none {
+  pointer-events: none;
+}
+
+.select-none {
+  user-select: none;
+}
+
+.filter-blur-sm {
+  filter: blur(2px);
+}
+
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.border-white-10 {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.text-gray-300 {
+  color: #d1d5db;
+}
+
+.hover-border-white-10:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.hover-bg-white-5:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.duration-300 {
+  transition-duration: 300ms;
+}
+
+/* Checkbox specific shim since DaisyUI might also be missing or partial */
+.checkbox {
+  flex-shrink: 0;
+  height: 1.5rem;
+  width: 1.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--border-gray-200);
+  /* Fallback */
+  border-radius: 0.25rem;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.checkbox:checked {
+  background-color: var(--primary-600);
+  background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+}
+
+.link-primary {
+  color: var(--primary-600);
+  text-decoration: underline;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  /* rounded-2xl */
 }

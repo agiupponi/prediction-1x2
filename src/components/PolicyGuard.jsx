@@ -73,10 +73,10 @@ const PolicyGuard = ({ children }) => {
                 <div aria-hidden="true" className="pointer-events-none select-none filter blur-[2px]">
                     {children}
                 </div>
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-                    <div className="glass-card w-full max-w-md p-6 animate-in fade-in zoom-in duration-300 border border-white/10 shadow-2xl">
-                        <h2 className="text-2xl font-bold mb-4 text-center text-white">Policy Update</h2>
-                        <p className="mb-6 text-center text-gray-300">
+                <div className="fixed inset-0 z-max flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+                    <div className="glass-card max-w-md p-6 animate-in fade-in zoom-in duration-300 border border-white/10 shadow-2xl">
+                        <h2 className="text-2xl font-bold mb-4 text-center text-gray-900">Policy Update</h2>
+                        <p className="mb-6 text-center text-gray-900">
                             We've updated our policies. To continue using the application, you must review and accept the new terms.
                         </p>
 
@@ -89,7 +89,7 @@ const PolicyGuard = ({ children }) => {
                                     className="checkbox checkbox-primary"
                                 />
                                 <span className="text-sm group-hover:text-white transition-colors">
-                                    I accept the <Link to="/privacy" target="_blank" className="link link-primary font-medium hover:text-primary-focus">Privacy Policy</Link>
+                                    I accept the <Link to="/privacy" target="_blank" className="link link-primary font-medium hover:text-primary-focus text-decoration-none">Privacy Policy</Link>
                                 </span>
                             </label>
 
@@ -101,7 +101,7 @@ const PolicyGuard = ({ children }) => {
                                     className="checkbox checkbox-primary"
                                 />
                                 <span className="text-sm group-hover:text-white transition-colors">
-                                    I accept the <Link to="/privacy" target="_blank" className="link link-primary font-medium hover:text-primary-focus">Cookie Policy</Link>
+                                    I accept the <Link to="/privacy" target="_blank" className="link link-primary font-medium hover:text-primary-focus text-decoration-none">Cookie Policy</Link>
                                 </span>
                             </label>
                         </div>
