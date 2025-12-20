@@ -7,13 +7,31 @@ const { sequelize } = require('../config/db');
 
 exports.getLeaderboard = async (req, res) => {
     try {
-        // Fetch from Database View 'standings' aggregated by user
-        const [results] = await sequelize.query(`
-            SELECT user_id, SUM(points) as points 
-            FROM standings 
-            GROUP BY user_id 
-            ORDER BY points DESC
-        `);
+        const { matchday } = req.query;
+        let results;
+
+        if (matchday) {
+            // Calculate standings specifically for this matchday
+            // Join Predictions -> Matches. 
+            // Condition: Match.matchday = ? AND Match.status = 'FINISHED' AND Match.winner = Prediction.prediction
+            [results] = await sequelize.query(`
+                SELECT user_id, SUM(points) as points 
+                FROM standings 
+                WHERE matchday = :matchday 
+                GROUP BY user_id 
+                ORDER BY points DESC
+            `, {
+                replacements: { matchday }
+            });
+        } else {
+            // Fetch from Database View 'standings' aggregated by user
+            [results] = await sequelize.query(`
+                SELECT user_id, SUM(points) as points 
+                FROM standings 
+                GROUP BY user_id 
+                ORDER BY points DESC
+            `);
+        }
 
         // Fetch all users from Firestore to map names
         const usersSnapshot = await admin.firestore().collection('users').get();
@@ -49,13 +67,33 @@ exports.getLeaderboard = async (req, res) => {
 
 exports.getOddLeaderboard = async (req, res) => {
     try {
-        // Fetch from Database View 'odd_standings' aggregated by user
-        const [results] = await sequelize.query(`
-            SELECT user_id, SUM(points) as points 
-            FROM odd_standings 
-            GROUP BY user_id 
-            ORDER BY points DESC
-        `);
+        const { matchday } = req.query;
+        let results;
+
+        if (matchday) {
+            // Calculate odd standings specifically for this matchday
+            // Join Predictions -> Matches -> Odds (Left Join Odds to get value? Or just join if assuming odd exists)
+            // Need to get the 'odd' value for the winning outcome.
+            // Odds table stores (id=match_id, prediction='1'/'X'/'2', odd=value)
+
+            [results] = await sequelize.query(`
+                SELECT user_id, SUM(points) as points 
+                FROM odd_standings 
+                WHERE matchday = :matchday
+                GROUP BY user_id 
+                ORDER BY points DESC
+            `, {
+                replacements: { matchday }
+            });
+        } else {
+            // Fetch from Database View 'odd_standings' aggregated by user
+            [results] = await sequelize.query(`
+                SELECT user_id, SUM(points) as points 
+                FROM odd_standings 
+                GROUP BY user_id 
+                ORDER BY points DESC
+            `);
+        }
 
         // Fetch all users from Firestore to map names
         const usersSnapshot = await admin.firestore().collection('users').get();
