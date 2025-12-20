@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { CheckCircle, XCircle, Clock, Calendar, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, ChevronLeft, ChevronRight, AlertCircle, Trophy } from 'lucide-react';
+import StandingModal from './StandingModal';
 
 export default function Predictions() {
     const { currentUser } = useAuth();
@@ -13,6 +14,7 @@ export default function Predictions() {
     const [teams, setTeams] = useState({});
     const [expandedMatchId, setExpandedMatchId] = useState(null);
     const [oddsData, setOddsData] = useState({});
+    const [isStandingModalOpen, setIsStandingModalOpen] = useState(false);
 
     const [availableMatchdays, setAvailableMatchdays] = useState([]);
 
@@ -180,7 +182,7 @@ export default function Predictions() {
             // Highlight pending predictions in "Orange-Yellow" (Amber) as requested
             return base + " bg-amber-500 text-white border-amber-500 shadow-md";
         }
-        return base + " bg-white text-gray-700 hover:bg-gray-50 border-gray-200";
+        return base + " bg-white text-black hover:bg-gray-50 border-gray-200";
     };
 
     const getCardBackgroundClass = (match) => {
@@ -226,40 +228,51 @@ export default function Predictions() {
             <div className="flex justify-between items-center flex-wrap gap-4">
                 <h1 className="text-2xl font-bold">Make Predictions</h1>
 
-                {/* Matchday Navigator */}
-                <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => navigateMatchday('prev')}
-                        disabled={availableMatchdays.length > 0 ? currentMatchday === availableMatchdays[0] : currentMatchday <= 1}
-                        className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                        onClick={() => setIsStandingModalOpen(true)}
+                        className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200 transition-colors"
+                        title="View Standings"
                     >
-                        <ChevronLeft size={20} />
+                        <Trophy size={20} />
                     </button>
 
-                    {availableMatchdays.length > 0 ? (
-                        <div className="relative">
-                            <select
-                                value={currentMatchday}
-                                onChange={(e) => setCurrentMatchday(Number(e.target.value))}
-                                className="appearance-none bg-transparent font-mono font-bold px-4 py-1 pr-8 cursor-pointer focus:outline-none bg-gray-50 border-none text-xl"
-                            >
-                                {availableMatchdays.map(md => (
-                                    <option key={md} value={md}>Matchday {md}</option>
-                                ))}
-                            </select>
-                        </div>
-                    ) : (
-                        <span className="font-mono font-bold px-2">Matchday {currentMatchday}</span>
-                    )}
+                    {/* Matchday Navigator */}
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200">
+                        <button
+                            onClick={() => navigateMatchday('prev')}
+                            disabled={availableMatchdays.length > 0 ? currentMatchday === availableMatchdays[0] : currentMatchday <= 1}
+                            className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
 
-                    <button
-                        onClick={() => navigateMatchday('next')}
-                        disabled={availableMatchdays.length > 0 ? currentMatchday === availableMatchdays[availableMatchdays.length - 1] : false}
-                        className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
-                    >
-                        <ChevronRight size={20} />
-                    </button>
+                        {availableMatchdays.length > 0 ? (
+                            <div className="relative">
+                                <select
+                                    value={currentMatchday}
+                                    onChange={(e) => setCurrentMatchday(Number(e.target.value))}
+                                    className="appearance-none bg-transparent font-mono font-bold px-4 py-1 pr-8 cursor-pointer focus:outline-none bg-gray-50 border-none text-xl text-gray-900"
+                                >
+                                    {availableMatchdays.map(md => (
+                                        <option key={md} value={md}>Matchday {md}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <span className="font-mono font-bold px-2">Matchday {currentMatchday}</span>
+                        )}
+
+                        <button
+                            onClick={() => navigateMatchday('next')}
+                            disabled={availableMatchdays.length > 0 ? currentMatchday === availableMatchdays[availableMatchdays.length - 1] : false}
+                            className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
                 </div>
+
             </div>
 
             <div className="flex flex-wrap gap-4">
@@ -321,7 +334,7 @@ export default function Predictions() {
                                             )}
                                         </>
                                     ) : (
-                                        <span className="text-sm font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">VS</span>
+                                        <span className="text-sm font-bold text-gray-9">-</span>
                                     )}
                                 </div>
 
@@ -355,13 +368,6 @@ export default function Predictions() {
                                     2
                                 </button>
                             </div>
-
-                            {/* Restored: Correct Prediction Logic */}
-                            {isLocked && predictions[match.id] && predictions[match.id] === winner && (
-                                <div className="mt-3 text-center text-sm font-bold p-2 rounded bg-green-100 text-green-700">
-                                    Correct Prediction! (+1 Pt)
-                                </div>
-                            )}
 
                             {/* New: Odds / Expanded View */}
                             {expandedMatchId === match.id && (
@@ -405,6 +411,12 @@ export default function Predictions() {
                     <div className="text-center py-10 text-gray-400 w-full">No matches scheduled for this matchday.</div>
                 )}
             </div>
-        </div>
+
+            <StandingModal
+                isOpen={isStandingModalOpen}
+                onClose={() => setIsStandingModalOpen(false)}
+                matchday={currentMatchday}
+            />
+        </div >
     );
 };
