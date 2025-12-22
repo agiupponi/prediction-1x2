@@ -252,8 +252,54 @@ exports.upsertPrediction = async (req, res) => {
             return res.status(201).json(newPred);
         }
 
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error saving prediction' });
+    }
+};
+
+exports.getAllPredictionsForMatch = async (req, res) => {
+    try {
+        const { matchId } = req.params;
+
+        const predictions = await Prediction.findAll({
+            where: { match_id: matchId }
+        });
+
+        if (!predictions.length) {
+            return res.json([]);
+        }
+
+        // Fetch user details from Firestore
+        const userIds = predictions.map(p => p.user_id);
+        // Use a set to avoid duplicate fetches if needed, though findAll likely returns unique per user per match? 
+        // Yes, likely one prediction per user per match.
+
+        // Firestore 'in' query supports up to 10 items (or 30? It has limits). 
+        // Safer to fetch all users and map, OR fetch individually if list is short.
+        // Given we have a user map cache in getLeaderboard, maybe we should reuse a caching strategy or just fetch all for now as user base is small?
+        // Let's optimize slightly: fetch all users (assuming small scale) or fetch by chunks.
+        // For simplicity and consistency with existing code (getLeaderboard), let's fetch all users. 
+        // PRO: Simpler code. CON: Scaling issue. Optimization can come later.
+
+        const usersSnapshot = await admin.firestore().collection('users').get();
+        const usersMap = {};
+        usersSnapshot.forEach(doc => {
+            const data = doc.data();
+            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
+        });
+
+        const result = predictions.map(p => ({
+            user_id: p.user_id,
+            prediction: p.prediction,
+            displayName: usersMap[p.user_id] || 'Unknown User'
+        }));
+
+        res.json(result);
+
+    } catch (error) {
+        console.error("Error fetching match predictions:", error);
+        res.status(500).json({ message: "Error fetching match predictions" });
     }
 };
