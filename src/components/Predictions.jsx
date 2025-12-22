@@ -243,59 +243,54 @@ export default function Predictions() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-                <h1 className="text-2xl font-bold">Make Predictions</h1>
-
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setIsStandingModalOpen(true)}
-                        className="p-2 bg-amber-100 text-amber-600 rounded-full hover:bg-amber-200 transition-colors"
-                        title="View Standings"
-                    >
-                        <Trophy size={20} />
-                    </button>
-
-                    {/* Matchday Navigator */}
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200">
+            {/* NFL Style Header Strip */}
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white border-b-4 border-blue-900 p-4 mb-6 shadow-sm">
+                <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+                    <h1 className="text-4xl font-black italic tracking-tighter uppercase text-gray-900 font-oswald">
+                        Week <span className="text-red-600">{currentMatchday}</span>
+                    </h1>
+                    <div className="flex items-center gap-1">
                         <button
                             onClick={() => navigateMatchday('prev')}
                             disabled={availableMatchdays.length > 0 ? currentMatchday === availableMatchdays[0] : currentMatchday <= 1}
-                            className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                            className="p-2 hover:bg-gray-100 disabled:opacity-30 border border-gray-300 transition-colors"
                         >
-                            <ChevronLeft size={20} />
+                            <ChevronLeft size={24} strokeWidth={3} />
                         </button>
-
-                        {availableMatchdays.length > 0 ? (
-                            <div className="relative">
-                                <select
-                                    value={currentMatchday}
-                                    onChange={(e) => setCurrentMatchday(Number(e.target.value))}
-                                    className="appearance-none bg-transparent font-mono font-bold px-4 py-1 pr-8 cursor-pointer focus:outline-none bg-gray-50 border-none text-xl text-gray-900"
-                                >
-                                    {availableMatchdays.map(md => (
-                                        <option key={md} value={md}>Matchday {md}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        ) : (
-                            <span className="font-mono font-bold px-2">Matchday {currentMatchday}</span>
-                        )}
-
                         <button
                             onClick={() => navigateMatchday('next')}
                             disabled={availableMatchdays.length > 0 ? currentMatchday === availableMatchdays[availableMatchdays.length - 1] : false}
-                            className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                            className="p-2 hover:bg-gray-100 disabled:opacity-30 border border-gray-300 transition-colors"
                         >
-                            <ChevronRight size={20} />
+                            <ChevronRight size={24} strokeWidth={3} />
                         </button>
                     </div>
                 </div>
 
+                <div className="flex items-center gap-4 mt-4 md:mt-0 w-full md:w-auto justify-end">
+                    {availableMatchdays.length > 0 && (
+                        <select
+                            value={currentMatchday}
+                            onChange={(e) => setCurrentMatchday(Number(e.target.value))}
+                            className="appearance-none bg-gray-100 font-bold uppercase text-sm px-4 py-2 border border-gray-300 focus:outline-none focus:border-blue-900 font-oswald"
+                        >
+                            {availableMatchdays.map(md => (
+                                <option key={md} value={md}>Week {md}</option>
+                            ))}
+                        </select>
+                    )}
+                    <button
+                        onClick={() => setIsStandingModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 transition-colors uppercase font-bold text-sm tracking-wider font-oswald"
+                    >
+                        <Trophy size={16} /> Standings
+                    </button>
+                </div>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 justify-center items-start">
                 {filteredMatches.map(match => {
-                    const home = getTeam(match.home_team_id); // use home_team_id from backend
+                    const home = getTeam(match.home_team_id);
                     const away = getTeam(match.away_team_id);
                     const isLocked = match.status === 'FINISHED' || new Date(match.start_date) < new Date();
 
@@ -309,140 +304,180 @@ export default function Predictions() {
                     return (
                         <div
                             key={match.id}
-                            className={`card match-card p-4 hover:shadow-md transition-shadow cursor-pointer`}
+                            className={`card match-card hover:shadow-lg transition-all cursor-pointer bg-white relative overflow-hidden group border-t-4 flex flex-col`}
                             onClick={(e) => {
-                                // Prevent toggle when clicking buttons
                                 if (e.target.tagName === 'BUTTON') return;
                                 toggleMatchExpand(match.id);
                             }}
                         >
-                            <div className="flex justify-between items-start mb-4 text-xs text-gray-500 uppercase tracking-wide font-semibold">
-                                <div className="flex items-center gap-1">
-                                    <Clock size={14} />
-                                    {new Date(match.start_date).toLocaleString()}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    {match.status === 'FINISHED' ? (
-                                        <span className="text-green-600 flex items-center gap-1"><CheckCircle size={14} /> FINISHED</span>
-                                    ) : (
-                                        <span className="text-blue-600 flex items-center gap-1"><Calendar size={14} /> SCHEDULED</span>
-                                    )}
-                                </div>
+                            {/* Match Status Strip */}
+                            <div className="bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500 flex justify-between items-center border-b border-gray-200 font-oswald">
+                                <span>{new Date(match.start_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                {match.status === 'FINISHED' ? (
+                                    <span className="text-black">Final</span>
+                                ) : (
+                                    <span className="text-black">{new Date(match.start_date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                                )}
                             </div>
 
-                            {/* Referee - removed from display as backend model doesn't explicitly have it right now, could add if needed */}
+                            <div className="p-5 flex flex-col flex-1">
+                                <div className="flex items-center justify-between mb-6 flex-1">
+                                    {/* Home Team */}
+                                    <div className="flex flex-col items-center gap-2 flex-1 w-0 px-4 pt-4">
+                                        {home.crest_url ? (
+                                            <img src={home.crest_url} alt={home.short_name} className="w-12 h-12 object-contain drop-shadow-sm w-full h-full" />
+                                        ) : (
+                                            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-400">?</div>
+                                        )}
+                                        <span className="font-extrabold text-2xl uppercase tracking-tight text-gray-900 text-center leading-none font-oswald truncate w-full italic font-black">{home.short_name || home.name}</span>
+                                    </div>
 
-                            {/* Teams & Score */}
-                            <div className="flex items-center justify-between mb-6 px-2">
-                                <div className="flex flex-col items-center justify-center gap-1 w-33">
-                                    {home.crest_url && <img src={home.crest_url} alt={home.short_name} className="w-8 h-8 object-contain" />}
-                                    <span className="font-bold text-center leading-tight text-sm">{home.short_name || home.name}</span>
-                                </div>
-
-                                <div className="flex flex-col items-center justify-center w-33">
-                                    {match.status === 'FINISHED' ? (
-                                        <>
-                                            <div className="text-2xl font-black text-gray-800 tracking-widest">
-                                                {match.score_home} - {match.score_away}
+                                    {/* Score / VS */}
+                                    <div className="flex flex-col items-center justify-center px-4">
+                                        {match.status === 'FINISHED' ? (
+                                            <div className="flex gap-3 items-center">
+                                                <span className={`text-4xl font-black font-oswald ${match.score_home > match.score_away ? 'text-gray-900' : 'text-gray-500'}`}>
+                                                    {match.score_home}
+                                                </span>
+                                                <span className="text-gray-300 text-2xl font-light">-</span>
+                                                <span className={`text-4xl font-black font-oswald ${match.score_away > match.score_home ? 'text-gray-900' : 'text-gray-500'}`}>
+                                                    {match.score_away}
+                                                </span>
                                             </div>
-                                            {(match.score_halftime_home !== null && match.score_halftime_home !== undefined) && (
-                                                <div className="text-xs text-gray-400 mt-1">
-                                                    ({match.score_halftime_home} - {match.score_halftime_away})
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <span className="text-sm font-bold text-gray-9">-</span>
-                                    )}
+                                        ) : (
+                                            <span className="text-xl font-bold text-gray-300 font-oswald italic">VS</span>
+                                        )}
+                                    </div>
+
+                                    {/* Away Team */}
+                                    <div className="flex flex-col items-center gap-2 flex-1 w-0 px-4 pt-4">
+                                        {away.crest_url ? (
+                                            <img src={away.crest_url} alt={away.short_name} className="w-12 h-12 object-contain drop-shadow-sm w-full h-full" />
+                                        ) : (
+                                            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-400">?</div>
+                                        )}
+                                        <span className="font-extrabold text-2xl uppercase tracking-tight text-gray-900 text-center leading-none font-oswald truncate w-full italic font-black">{away.short_name || away.name}</span>
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-col items-center justify-center gap-1 w-33">
-                                    {away.crest_url && <img src={away.crest_url} alt={away.short_name} className="w-8 h-8 object-contain" />}
-                                    <span className="font-bold text-center leading-tight text-sm">{away.short_name || away.name}</span>
+                                {/* Prediction Strip */}
+                                <div className="grid grid-cols-3 gap-0 border border-gray-200 bg-gray-50">
+                                    {['1', 'X', '2'].map(type => {
+                                        const isSelected = predictions[match.id] === type;
+                                        // Re-calculate winner logic locally for display
+                                        let computedWinner = match.winner;
+                                        if (!computedWinner && match.status === 'FINISHED' && match.score_home !== null) {
+                                            if (match.score_home > match.score_away) computedWinner = '1';
+                                            else if (match.score_away > match.score_home) computedWinner = '2';
+                                            else computedWinner = 'X';
+                                        }
+
+                                        const isCorrect = match.status === 'FINISHED' && isSelected && computedWinner === type;
+                                        const isWrong = match.status === 'FINISHED' && isSelected && computedWinner !== type;
+                                        const isActualWinner = match.status === 'FINISHED' && computedWinner === type;
+
+                                        let bgClass = 'bg-gray-50 hover:bg-amber-500';
+                                        let textClass = 'text-gray-500 hover:text-white';
+                                        let borderClass = 'border-button';
+
+                                        if (match.status === 'FINISHED') {
+                                            if (isCorrect) {
+                                                bgClass = 'bg-green-700';
+                                                textClass = 'text-white';
+                                            } else if (isWrong) {
+                                                bgClass = 'bg-red-600';
+                                                textClass = 'text-white';
+                                            } else if (isActualWinner) {
+                                                bgClass = 'bg-green-100';
+                                                textClass = 'text-green-800';
+                                            } else {
+                                                bgClass = 'bg-gray-50 opacity-50';
+                                                textClass = 'text-gray-500';
+                                            }
+                                        } else {
+                                            if (isSelected) {
+                                                bgClass = 'bg-amber-500';
+                                                textClass = 'text-white';
+                                            }
+                                        }
+
+                                        return (
+                                            <button
+                                                key={type}
+                                                className={`py-3 text-sm font-bold uppercase transition-colors font-oswald ${bgClass} ${textClass} ${borderClass}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isLocked) handleVote(match.id, type);
+                                                }}
+                                                disabled={isLocked && computedWinner !== type}
+                                            >
+                                                {type === '1' ? 'Home' : type === 'X' ? 'Draw' : 'Away'}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* Voting Buttons */}
-                            <div className="flex gap-2">
-                                <button
-                                    className={getBtnClass(Object.assign({}, match, { winner }), '1')} // pass winner-augmented match object for helper
-                                    onClick={() => !isLocked && handleVote(match.id, '1')}
-                                    disabled={isLocked && winner !== '1'}
-                                >
-                                    1
-                                </button>
-                                <button
-                                    className={getBtnClass(Object.assign({}, match, { winner }), 'X')}
-                                    onClick={() => !isLocked && handleVote(match.id, 'X')}
-                                    disabled={isLocked && winner !== 'X'}
-                                >
-                                    X
-                                </button>
-                                <button
-                                    className={getBtnClass(Object.assign({}, match, { winner }), '2')}
-                                    onClick={() => !isLocked && handleVote(match.id, '2')}
-                                    disabled={isLocked && winner !== '2'}
-                                >
-                                    2
-                                </button>
-                            </div>
-
-                            {/* New: Odds / Expanded View */}
+                            {/* Details / Expanded */}
                             {expandedMatchId === match.id && (
-                                <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300 cursor-default" onClick={(e) => e.stopPropagation()}>
+                                <div className="bg-gray-50 border-t border-gray-200 p-4 animate-in fade-in slide-in-from-top-2 duration-200 cursor-default" onClick={(e) => e.stopPropagation()}>
                                     {isLocked || predictions[match.id] ? (
                                         <>
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Community Predictions</h4>
+                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider font-oswald">Community Pick</h4>
                                             {oddsData[match.id] && oddsData[match.id].length > 0 ? (
                                                 <div className="space-y-4">
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-1">
                                                         {oddsData[match.id].map(odd => {
                                                             const type = odd.prediction;
                                                             const partial = odd.partial_prediction;
                                                             const total = odd.total_predictions;
-                                                            const oddValue = odd.odd;
+                                                            const oddValue = odd.odd; // Use odd value if needed, or remove
+                                                            const percentage = total ? (partial / total) * 100 : 0;
 
                                                             return (
-                                                                <div key={type} className="flex items-center justify-between text-sm">
-                                                                    <span className="font-bold w-4 text-center">{type}</span>
-                                                                    <div className="flex-1 mx-3 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                                <div key={type} className="flex items-center text-xs font-medium">
+                                                                    <div className="w-12 text-gray-500 font-bold">{type === '1' ? 'HOME' : type === 'X' ? 'DRAW' : 'AWAY'}</div>
+                                                                    <div className="flex-1 h-3 bg-gray-200 mx-2 relative">
                                                                         <div
-                                                                            className={`h-full ${type === '1' ? 'bg-blue-500' : type === 'X' ? 'bg-gray-500' : 'bg-red-500'}`}
-                                                                            style={{ width: `${total ? (partial / total) * 100 : 0}%` }}
-                                                                        />
+                                                                            className={`h-full absolute top-0 left-0 ${type === '1' ? 'bg-blue-600' : type === 'X' ? 'bg-gray-500' : 'bg-red-600'}`}
+                                                                            style={{ width: `${percentage}%` }}
+                                                                        ></div>
                                                                     </div>
-                                                                    <div className="flex gap-4 text-xs font-mono text-gray-600">
-                                                                        <span>{partial}/{total}</span>
-                                                                        <span className="font-bold text-gray-600">{oddValue ? Number(oddValue).toFixed(2) : '-'}</span>
-                                                                    </div>
+                                                                    <div className="w-10 text-right font-bold text-gray-700">{percentage.toFixed(0)}%</div>
                                                                 </div>
                                                             );
                                                         })}
                                                     </div>
 
                                                     {matchPredictions[match.id] && matchPredictions[match.id].length > 0 && (
-                                                        <div className="pt-4 border-t border-gray-100">
-                                                            <h5 className="text-xs font-bold text-gray-400 uppercase mb-2">User Predictions</h5>
-                                                            <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
-                                                                {matchPredictions[match.id].map((p, idx) => (
-                                                                    <div key={idx} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded hover:bg-gray-100">
-                                                                        <span className="font-medium text-gray-700">{p.displayName}</span>
-                                                                        <span className={`font-bold px-2 py-0.5  text-xs 'bg-red-100 text-gray-700'`}>
-                                                                            {p.prediction}
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
+                                                        <div className="pt-3 border-t border-gray-200">
+                                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider font-oswald">Friends</h4>
+                                                            <div className="overflow-x-auto">
+                                                                <table className="w-full text-xs font-medium">
+                                                                    <tbody>
+                                                                        {matchPredictions[match.id].map((p, idx) => (
+                                                                            <tr key={idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                                                                <td className="py-1.5 font-bold text-gray-500 uppercase w-full">{p.displayName}</td>
+                                                                                <td className="py-1.5 text-right">
+                                                                                    <span className={`inline-block w-6 h-6 flex items-center justify-center font-black rounded text-gray-700 shadow-sm ml-auto text-[10px]`}>
+                                                                                        {p.prediction}
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
                                                             </div>
                                                         </div>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="text-center text-gray-400 text-xs py-2">No predictions yet</div>
+                                                <div className="text-center text-gray-400 text-xs py-2 italic">Loading stats...</div>
                                             )}
                                         </>
                                     ) : (
-                                        <div className="text-center text-gray-500 text-sm py-4 italic bg-gray-50 rounded border border-gray-100">
-                                            Fai un pronostico per vedere cosa hanno votato gli altri
+                                        <div className="text-center text-gray-500 text-sm py-4 italic">
+                                            Make a pick to view stats
                                         </div>
                                     )}
                                 </div>
