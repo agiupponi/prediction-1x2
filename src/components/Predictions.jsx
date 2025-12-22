@@ -14,6 +14,7 @@ export default function Predictions() {
     const [teams, setTeams] = useState({});
     const [expandedMatchId, setExpandedMatchId] = useState(null);
     const [oddsData, setOddsData] = useState({});
+    const [matchPredictions, setMatchPredictions] = useState({});
     const [isStandingModalOpen, setIsStandingModalOpen] = useState(false);
 
     const [availableMatchdays, setAvailableMatchdays] = useState([]);
@@ -113,6 +114,13 @@ export default function Predictions() {
                 prediction: value
             });
             toast.success("Prediction saved");
+
+            // Refetch details for this match if open to update list instantly
+            if (expandedMatchId === matchId) {
+                const res = await api.get(`/predictions/match/${matchId}/all`);
+                setMatchPredictions(prev => ({ ...prev, [matchId]: res.data }));
+            }
+
         } catch (error) {
             console.error(error);
             toast.error("Failed to save prediction");
@@ -125,14 +133,24 @@ export default function Predictions() {
             setExpandedMatchId(null);
         } else {
             setExpandedMatchId(matchId);
+
+            // Fetch Odds
             if (!oddsData[matchId]) {
                 try {
                     const res = await api.get(`/matches/${matchId}/odds`);
                     setOddsData(prev => ({ ...prev, [matchId]: res.data }));
                 } catch (error) {
                     console.error("Failed to fetch odds", error);
-                    // toast.error("Could not load odds"); // Optional, maybe too noisy
                 }
+            }
+
+            // Fetch User Predictions List
+            // Always fetch fresh to get latest updates
+            try {
+                const res = await api.get(`/predictions/match/${matchId}/all`);
+                setMatchPredictions(prev => ({ ...prev, [matchId]: res.data }));
+            } catch (error) {
+                console.error("Failed to fetch match predictions", error);
             }
         }
     };
@@ -372,34 +390,60 @@ export default function Predictions() {
                             {/* New: Odds / Expanded View */}
                             {expandedMatchId === match.id && (
                                 <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300 cursor-default" onClick={(e) => e.stopPropagation()}>
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Community Predictions</h4>
-                                    {oddsData[match.id] && oddsData[match.id].length > 0 ? (
-                                        <div className="space-y-2">
-                                            {oddsData[match.id].map(odd => {
-                                                const type = odd.prediction;
-                                                const partial = odd.partial_prediction;
-                                                const total = odd.total_predictions;
-                                                const oddValue = odd.odd; // Assuming 'odd' field exists from DB model
+                                    {isLocked || predictions[match.id] ? (
+                                        <>
+                                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Community Predictions</h4>
+                                            {oddsData[match.id] && oddsData[match.id].length > 0 ? (
+                                                <div className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        {oddsData[match.id].map(odd => {
+                                                            const type = odd.prediction;
+                                                            const partial = odd.partial_prediction;
+                                                            const total = odd.total_predictions;
+                                                            const oddValue = odd.odd;
 
-                                                return (
-                                                    <div key={type} className="flex items-center justify-between text-sm">
-                                                        <span className="font-bold w-4 text-center">{type}</span>
-                                                        <div className="flex-1 mx-3 bg-gray-100 rounded-full h-2 overflow-hidden">
-                                                            <div
-                                                                className={`h-full ${type === '1' ? 'bg-blue-500' : type === 'X' ? 'bg-gray-500' : 'bg-red-500'}`}
-                                                                style={{ width: `${total ? (partial / total) * 100 : 0}%` }}
-                                                            />
-                                                        </div>
-                                                        <div className="flex gap-4 text-xs font-mono text-gray-600">
-                                                            <span>{partial}/{total}</span>
-                                                            <span className="font-bold text-black">{oddValue ? Number(oddValue).toFixed(2) : '-'}</span>
-                                                        </div>
+                                                            return (
+                                                                <div key={type} className="flex items-center justify-between text-sm">
+                                                                    <span className="font-bold w-4 text-center">{type}</span>
+                                                                    <div className="flex-1 mx-3 bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full ${type === '1' ? 'bg-blue-500' : type === 'X' ? 'bg-gray-500' : 'bg-red-500'}`}
+                                                                            style={{ width: `${total ? (partial / total) * 100 : 0}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex gap-4 text-xs font-mono text-gray-600">
+                                                                        <span>{partial}/{total}</span>
+                                                                        <span className="font-bold text-gray-600">{oddValue ? Number(oddValue).toFixed(2) : '-'}</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+
+                                                    {matchPredictions[match.id] && matchPredictions[match.id].length > 0 && (
+                                                        <div className="pt-4 border-t border-gray-100">
+                                                            <h5 className="text-xs font-bold text-gray-400 uppercase mb-2">User Predictions</h5>
+                                                            <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                                                                {matchPredictions[match.id].map((p, idx) => (
+                                                                    <div key={idx} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded hover:bg-gray-100">
+                                                                        <span className="font-medium text-gray-700">{p.displayName}</span>
+                                                                        <span className={`font-bold px-2 py-0.5  text-xs 'bg-red-100 text-gray-700'`}>
+                                                                            {p.prediction}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center text-gray-400 text-xs py-2">No predictions yet</div>
+                                            )}
+                                        </>
                                     ) : (
-                                        <div className="text-center text-gray-400 text-xs py-2">No predictions yet</div>
+                                        <div className="text-center text-gray-500 text-sm py-4 italic bg-gray-50 rounded border border-gray-100">
+                                            Fai un pronostico per vedere cosa hanno votato gli altri
+                                        </div>
                                     )}
                                 </div>
                             )}
