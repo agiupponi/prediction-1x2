@@ -267,7 +267,7 @@ export default function Predictions() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 mt-4 md:mt-0 w-full md:w-auto justify-end">
+                <div className="flex items-center gap-4 md:mt-0 w-full md:w-auto justify-end">
                     {availableMatchdays.length > 0 && (
                         <select
                             value={currentMatchday}
@@ -288,7 +288,7 @@ export default function Predictions() {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-4 justify-center items-start">
+            <div className="flex flex-wrap gap-4 items-start">
                 {filteredMatches.map(match => {
                     const home = getTeam(match.home_team_id);
                     const away = getTeam(match.away_team_id);
@@ -312,11 +312,11 @@ export default function Predictions() {
                         >
                             {/* Match Status Strip */}
                             <div className="bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500 flex justify-between items-center border-b border-gray-200 font-oswald">
-                                <span>{new Date(match.start_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                <span className="mt-neg-15 ml-0-1">{new Date(match.start_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                                 {match.status === 'FINISHED' ? (
-                                    <span className="text-black">Final</span>
+                                    <span className="text-black mt-neg-15 mr-0-1">Final</span>
                                 ) : (
-                                    <span className="text-black">{new Date(match.start_date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span className="text-black mt-neg-15 mr-0-1">{new Date(match.start_date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
                                 )}
                             </div>
 
@@ -440,7 +440,6 @@ export default function Predictions() {
                                                                     <div className="flex-1 h-3 bg-gray-200 mx-2 relative">
                                                                         <div
                                                                             className={`h-full absolute top-0 left-0 ${type === '1' ? 'bg-blue-600' : type === 'X' ? 'bg-gray-500' : 'bg-red-600'}`}
-                                                                            style={{ width: `${percentage}%` }}
                                                                         ></div>
                                                                     </div>
                                                                     <div className="w-10 text-right font-bold text-gray-700">{percentage.toFixed(0)}%</div>
@@ -452,21 +451,20 @@ export default function Predictions() {
                                                     {matchPredictions[match.id] && matchPredictions[match.id].length > 0 && (
                                                         <div className="pt-3 border-t border-gray-200">
                                                             <h4 className="text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider font-oswald">Friends</h4>
-                                                            <div className="overflow-x-auto">
-                                                                <table className="w-full text-xs font-medium">
-                                                                    <tbody>
-                                                                        {matchPredictions[match.id].map((p, idx) => (
-                                                                            <tr key={idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                                                                <td className="py-1.5 font-bold text-gray-500 uppercase w-full">{p.displayName}</td>
-                                                                                <td className="py-1.5 text-right">
-                                                                                    <span className={`inline-block w-6 h-6 flex items-center justify-center font-black rounded text-gray-700 shadow-sm ml-auto text-[10px]`}>
-                                                                                        {p.prediction}
-                                                                                    </span>
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
+                                                            <div className="space-y-4">
+                                                                <div className="space-y-1">
+                                                                    {matchPredictions[match.id].map((p, idx) => (
+                                                                        <div key={p.displayName} className="flex items-center text-xs font-medium">
+                                                                            <div className="w-12 text-gray-500 font-bold uppercase">{p.displayName}</div>
+                                                                            <div className="flex-1 h-3 bg-gray-200 mx-2 relative">
+                                                                                <div
+                                                                                    className={`h-full absolute top-0 left-0`}
+                                                                                ></div>
+                                                                            </div>
+                                                                            <div className="w-10 text-right font-bold text-gray-700">{p.prediction}</div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}

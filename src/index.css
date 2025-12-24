@@ -229,7 +229,7 @@ h6 {
 
 /* Match card specific styles */
 .match-card {
-  flex: 0 0 calc(30% - 1rem);
+  flex: 0 0 calc(33.33% - 1rem);
   min-width: 360px;
 }
 
@@ -1092,6 +1092,10 @@ label {
   margin: 1rem;
 }
 
+.ml-0-1 {
+  margin-left: 0.1rem;
+}
+
 .ml-2 {
   margin-left: 0.5rem;
 }
@@ -1104,12 +1108,20 @@ label {
   margin-left: 1.25rem;
 }
 
+.mr-0-1 {
+  margin-right: 0.1rem;
+}
+
 .mr-2 {
   margin-left: 0.5rem;
 }
 
 .mr-3 {
   margin-right: 0.75rem;
+}
+
+.mt-neg-15 {
+  margin-top: -0.15rem;
 }
 
 .mt-1 {
