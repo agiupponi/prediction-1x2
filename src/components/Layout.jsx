@@ -180,7 +180,7 @@ export default function Layout({ children }) {
                 </div>
 
                 {/* Page Content */}
-                <main style={{ paddingTop: "1.5rem", paddingBottom: "1.5rem" }}>
+                <main style={{ paddingBottom: "1.5rem" }}>
                     <div style={{ maxWidth: "80rem", margin: "0 auto", paddingLeft: "1rem", paddingRight: "1rem" }}>
                         {children}
                     </div>
