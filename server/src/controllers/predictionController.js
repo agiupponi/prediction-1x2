@@ -127,6 +127,60 @@ exports.getOddLeaderboard = async (req, res) => {
     }
 };
 
+exports.getHeadToHeadLeaderboard = async (req, res) => {
+    try {
+        const { matchday } = req.query;
+        let results;
+
+        if (matchday) {
+            [results] = await sequelize.query(`
+                SELECT user_id, SUM(points) as points 
+                FROM one_to_one_standings 
+                WHERE matchday = :matchday
+                GROUP BY user_id 
+                ORDER BY points DESC
+            `, {
+                replacements: { matchday }
+            });
+        } else {
+            [results] = await sequelize.query(`
+                SELECT user_id, SUM(points) as points 
+                FROM one_to_one_standings 
+                GROUP BY user_id 
+                ORDER BY points DESC
+            `);
+        }
+
+        const usersSnapshot = await admin.firestore().collection('users').get();
+        const usersMap = {};
+        usersSnapshot.forEach(doc => {
+            const data = doc.data();
+            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
+        });
+
+        let rankCounter = 1;
+        const leaderboard = results
+            .map(entry => {
+                const uid = entry.user_id;
+
+                if (!usersMap[uid]) return null;
+
+                return {
+                    rank: rankCounter++,
+                    user_id: uid,
+                    points: parseInt(entry.points || 0),
+                    displayName: usersMap[uid]
+                };
+            })
+            .filter(e => e !== null);
+
+        res.json(leaderboard);
+    } catch (error) {
+        console.error("Head to Head Leaderboard error:", error);
+        res.status(500).json({ message: "Error fetching head to head leaderboard" });
+    }
+};
+
 exports.getStats = async (req, res) => {
     try {
         const userId = req.user.uid;
