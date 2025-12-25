@@ -134,20 +134,26 @@ exports.getHeadToHeadLeaderboard = async (req, res) => {
 
         if (matchday) {
             [results] = await sequelize.query(`
-                SELECT user_id, SUM(points) as points 
+                SELECT 
+                    user_id, 
+                    SUM(win) as total_wins, 
+                    SUM(draw) as total_draws, 
+                    SUM(loss) as total_losses
                 FROM one_to_one_standings 
                 WHERE matchday = :matchday
                 GROUP BY user_id 
-                ORDER BY points DESC
             `, {
                 replacements: { matchday }
             });
         } else {
             [results] = await sequelize.query(`
-                SELECT user_id, SUM(points) as points 
+                SELECT 
+                    user_id, 
+                    SUM(win) as total_wins, 
+                    SUM(draw) as total_draws, 
+                    SUM(loss) as total_losses
                 FROM one_to_one_standings 
                 GROUP BY user_id 
-                ORDER BY points DESC
             `);
         }
 
@@ -158,8 +164,27 @@ exports.getHeadToHeadLeaderboard = async (req, res) => {
             usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
         });
 
+        // Calculate sortable points (Wins then Draws)
+        const rankedResults = results.map(r => {
+            const wins = parseInt(r.total_wins || 0);
+            const draws = parseInt(r.total_draws || 0);
+            const losses = parseInt(r.total_losses || 0);
+            return {
+                ...r,
+                wins,
+                draws,
+                losses,
+                displayString: `${wins}-${draws}-${losses}`
+            };
+        }).sort((a, b) => {
+            if (b.wins !== a.wins) {
+                return b.wins - a.wins; // Primary: Wins
+            }
+            return b.draws - a.draws; // Secondary: Draws
+        });
+
         let rankCounter = 1;
-        const leaderboard = results
+        const leaderboard = rankedResults
             .map(entry => {
                 const uid = entry.user_id;
 
@@ -168,7 +193,10 @@ exports.getHeadToHeadLeaderboard = async (req, res) => {
                 return {
                     rank: rankCounter++,
                     user_id: uid,
-                    points: parseInt(entry.points || 0),
+                    points: entry.displayString, // Keep for potential fallback
+                    win: entry.wins,     // Add specific fields
+                    draw: entry.draws,
+                    loss: entry.losses,
                     displayName: usersMap[uid]
                 };
             })

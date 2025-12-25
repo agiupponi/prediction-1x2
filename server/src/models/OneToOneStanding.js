@@ -10,9 +10,17 @@ const OneToOneStanding = sequelize.define('OneToOneStanding', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    points: {
+    win: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        defaultValue: 0
+    },
+    draw: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    loss: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     }
 }, {
     tableName: 'one_to_one_standings',

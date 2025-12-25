@@ -139,11 +139,15 @@ GRANT ALL ON TABLE standings TO neondb_owner;
 CREATE OR REPLACE VIEW one_to_one_standings
 AS SELECT matchday,
     user_id,
-    sum(( SELECT count(*) * 3
+    sum(( SELECT count(*) AS count
            FROM standings si
-          WHERE s.points > si.points AND si.matchday = s.matchday)) + sum(( SELECT count(*) * 1
+          WHERE s.points > si.points AND si.matchday = s.matchday)) AS win,
+    sum(( SELECT count(*) AS count
            FROM standings si
-          WHERE s.points = si.points AND si.matchday = s.matchday AND si.user_id::text <> s.user_id::text)) AS points
+          WHERE s.points = si.points AND si.matchday = s.matchday AND si.user_id::text <> s.user_id::text)) AS draw,
+    sum(( SELECT count(*) AS count
+           FROM standings si
+          WHERE s.points < si.points AND si.matchday = s.matchday)) AS loss
    FROM standings s
   GROUP BY matchday, user_id;
 
