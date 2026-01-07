@@ -139,8 +139,12 @@ export default function Layout({ children }) {
             {/* Desktop Sidebar (Fixed) */}
             <div className="desktop-sidebar-wrapper">
                 <div className="desktop-sidebar-inner">
-                    <div style={{ display: "flex", height: "4rem", alignItems: "center", paddingLeft: "1rem", paddingRight: "1rem" }}>
-                        <h1 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "var(--text-gray-900)" }}>Prediction App</h1>
+                    <div style={{ justifyContent: "center", display: "flex", height: "10rem", alignItems: "center", paddingLeft: "1rem", paddingRight: "1rem" }}>
+                        <img
+                            src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
+                            alt="Prediction 1x2"
+                            style={{ maxHeight: "100%", width: "auto" }}
+                        />
                     </div>
                     <nav style={{ flex: 1, padding: "1rem", spaceY: "0.25rem" }}>
                         <NavLinks />

@@ -387,6 +387,10 @@ label {
   justify-content: center;
 }
 
+.justify-space-evenly {
+  justify-content: space-evenly;
+}
+
 .justify-between {
   justify-content: space-between;
 }
