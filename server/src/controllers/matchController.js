@@ -298,6 +298,17 @@ exports.fetchExternalMatch = async (req, res) => {
 exports.getMatchOdds = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Verify match start time
+        const match = await Match.findByPk(id);
+        if (!match) {
+            return res.status(404).json({ message: "Match not found" });
+        }
+
+        if (new Date() < new Date(match.start_date)) {
+            return res.status(403).json({ message: "Odds hidden until kickoff" });
+        }
+
         const odds = await Odd.findAll({
             where: { id: id } // 'id' in Odd model is mapped to match_id
         });

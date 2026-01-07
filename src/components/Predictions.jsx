@@ -421,7 +421,7 @@ export default function Predictions() {
                             {/* Details / Expanded */}
                             {expandedMatchId === match.id && (
                                 <div className="bg-gray-50 border-t border-gray-200 p-4 animate-in fade-in slide-in-from-top-2 duration-200 cursor-default" onClick={(e) => e.stopPropagation()}>
-                                    {isLocked || predictions[match.id] ? (
+                                    {isLocked ? (
                                         <>
                                             <h4 className="text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider font-oswald">Community Pick</h4>
                                             {oddsData[match.id] && oddsData[match.id].length > 0 ? (
@@ -474,9 +474,17 @@ export default function Predictions() {
                                             )}
                                         </>
                                     ) : (
-                                        <div className="text-center text-gray-500 text-sm py-4 italic">
-                                            Make a pick to view stats
-                                        </div>
+                                        <>
+                                            {predictions[match.id] ? (
+                                                <div className="text-center text-gray-500 text-sm py-4 italic">
+                                                    Predictions revealed at kickoff
+                                                </div>
+                                            ) : (
+                                                <div className="text-center text-gray-500 text-sm py-4 italic">
+                                                    Make a pick (Results revealed at kickoff)
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}

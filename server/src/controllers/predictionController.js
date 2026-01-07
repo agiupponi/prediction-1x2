@@ -345,6 +345,18 @@ exports.getAllPredictionsForMatch = async (req, res) => {
     try {
         const { matchId } = req.params;
 
+        // Verify match start time
+        const match = await Match.findByPk(matchId);
+        if (!match) {
+            return res.status(404).json({ message: "Match not found" });
+        }
+
+        // Allow if match is finished or started (assuming start_date is in UTC or comparable format)
+        // If today is before start_date, deny access
+        if (new Date() < new Date(match.start_date)) {
+            return res.status(403).json({ message: "Predictions hidden until kickoff" });
+        }
+
         const predictions = await Prediction.findAll({
             where: { match_id: matchId }
         });
