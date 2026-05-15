@@ -33,9 +33,20 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/predictions', predictionRoutes);
 
+const AppError = require('./utils/AppError');
+const errorHandler = require('./middleware/errorHandler');
+
 app.get('/', (req, res) => {
     res.send('Prediction App API Running (Serverless)');
 });
+
+// Gestione rotte non trovate (404)
+app.all('*', (req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
+// Middleware Globale di Gestione degli Errori
+app.use(errorHandler);
 
 // Export Cloud Function
 exports.api = functions.https.onRequest(app);

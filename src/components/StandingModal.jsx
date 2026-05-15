@@ -88,7 +88,19 @@ export default function StandingModal({ isOpen, onClose, matchday }) {
                                                             {idx + 1}
                                                         </td>
                                                         <td className="py-3 font-bold text-gray-900 uppercase">
-                                                            {entry.displayName}
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center overflow-hidden shrink-0 text-[10px] text-white font-bold" style={{ backgroundColor: "var(--primary-600)" }}>
+                                                                    {entry.photoURL ? (
+                                                                        <img 
+                                                                            src={entry.photoURL} 
+                                                                            alt="" 
+                                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                                            onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                                                                        />
+                                                                    ) : (entry.displayName ? entry.displayName.charAt(0).toUpperCase() : 'U')}
+                                                                </div>
+                                                                <span className="truncate max-w-[120px] sm:max-w-[160px]">{entry.displayName}</span>
+                                                            </div>
                                                         </td>
                                                         <td className="py-3 text-right font-black text-blue-900 text-xl font-oswald">
                                                             {entry.points}
@@ -125,7 +137,19 @@ export default function StandingModal({ isOpen, onClose, matchday }) {
                                                             {idx + 1}
                                                         </td>
                                                         <td className="py-3 font-bold text-gray-900 uppercase">
-                                                            {entry.displayName}
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center overflow-hidden shrink-0 text-[10px] text-white font-bold" style={{ backgroundColor: "var(--primary-600)" }}>
+                                                                    {entry.photoURL ? (
+                                                                        <img 
+                                                                            src={entry.photoURL} 
+                                                                            alt="" 
+                                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                                            onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                                                                        />
+                                                                    ) : (entry.displayName ? entry.displayName.charAt(0).toUpperCase() : 'U')}
+                                                                </div>
+                                                                <span className="truncate max-w-[120px] sm:max-w-[160px]">{entry.displayName}</span>
+                                                            </div>
                                                         </td>
                                                         <td className="py-3 text-right font-black text-red-700 text-xl font-oswald">
                                                             {entry.points}

@@ -2,8 +2,9 @@ const Match = require('../models/Match');
 const Team = require('../models/Team');
 const Odd = require('../models/Odd');
 const { sequelize } = require('../config/db');
+const AppError = require('../utils/AppError');
 
-exports.getAllMatches = async (req, res) => {
+exports.getAllMatches = async (req, res, next) => {
     try {
         const { matchday } = req.query;
         const whereClause = {};
@@ -22,22 +23,20 @@ exports.getAllMatches = async (req, res) => {
         });
         res.json(matches);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
+        next(error);
     }
 };
 
-exports.createMatch = async (req, res) => {
+exports.createMatch = async (req, res, next) => {
     try {
         const match = await Match.create(req.body);
         res.status(201).json(match);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error creating match' });
+        next(error);
     }
 };
 
-exports.updateMatch = async (req, res) => {
+exports.updateMatch = async (req, res, next) => {
     try {
         const { id } = req.params;
         const [updated] = await Match.update(req.body, {
@@ -47,14 +46,13 @@ exports.updateMatch = async (req, res) => {
             const updatedMatch = await Match.findByPk(id);
             return res.json(updatedMatch);
         }
-        throw new Error('Match not found');
+        throw new AppError('Match not found', 404);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error updating match' });
+        next(error);
     }
 };
 
-exports.deleteMatch = async (req, res) => {
+exports.deleteMatch = async (req, res, next) => {
     try {
         const { id } = req.params;
         const deleted = await Match.destroy({
@@ -63,15 +61,14 @@ exports.deleteMatch = async (req, res) => {
         if (deleted) {
             return res.status(204).send();
         }
-        throw new Error('Match not found');
+        throw new AppError('Match not found', 404);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error deleting match' });
+        next(error);
     }
 };
 
 // Helper to get distinct matchdays (for frontend efficiency if needed)
-exports.getMatchdays = async (req, res) => {
+exports.getMatchdays = async (req, res, next) => {
     try {
         const matches = await Match.findAll({
             attributes: [[sequelize.fn('DISTINCT', sequelize.col('matchday')), 'matchday']],
@@ -80,11 +77,11 @@ exports.getMatchdays = async (req, res) => {
         const mds = matches.map(m => m.matchday);
         res.json(mds);
     } catch (error) {
-        res.status(500).json({ message: "Server Error" });
+        next(error);
     }
 }
 
-exports.getUpcomingMatch = async (req, res) => {
+exports.getUpcomingMatch = async (req, res, next) => {
     try {
         const { Op } = require('sequelize');
         const today = new Date();
@@ -102,22 +99,110 @@ exports.getUpcomingMatch = async (req, res) => {
         } else {
             // No future matches? Return empty or last match?
             // Let's return filtered result if null
-            res.status(404).json({ message: 'No upcoming matches found' });
+            throw new AppError('No upcoming matches found', 404);
         }
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
+        next(error);
     }
 };
 
-exports.importMatches = async (req, res) => {
+// Helper to upsert matches and teams from external API data
+const upsertMatchesFromData = async (matches) => {
+    const Team = require('../models/Team');
+    const Match = require('../models/Match');
+
+    // --- 1. Batch Upsert Teams ---
+    const teamMap = new Map(); // name -> data
+    matches.forEach(m => {
+        teamMap.set(m.homeTeam.name, {
+            name: m.homeTeam.name,
+            short_name: m.homeTeam.shortName,
+            crest_url: m.homeTeam.crest,
+            tla: m.homeTeam.tla
+        });
+        teamMap.set(m.awayTeam.name, {
+            name: m.awayTeam.name,
+            short_name: m.awayTeam.shortName,
+            crest_url: m.awayTeam.crest,
+            tla: m.awayTeam.tla
+        });
+    });
+
+    const uniqueTeams = Array.from(teamMap.values());
+    const existingTeams = await Team.findAll();
+    const existingTeamMap = new Map(existingTeams.map(t => [t.name, t]));
+
+    const newTeams = uniqueTeams.filter(t => !existingTeamMap.has(t.name));
+
+    if (newTeams.length > 0) {
+        await Team.bulkCreate(newTeams);
+        const allTeams = await Team.findAll();
+        allTeams.forEach(t => existingTeamMap.set(t.name, t));
+    }
+
+    // --- 2. Batch Upsert Matches ---
+    const matchDataList = matches.map(m => {
+        const homeTeamId = existingTeamMap.get(m.homeTeam.name)?.id;
+        const awayTeamId = existingTeamMap.get(m.awayTeam.name)?.id;
+
+        if (!homeTeamId || !awayTeamId) return null;
+
+        let winner = null;
+        if (m.status === 'FINISHED' && m.score.fullTime.home !== null && m.score.fullTime.away !== null) {
+            if (m.score.fullTime.home > m.score.fullTime.away) {
+                winner = '1';
+            } else if (m.score.fullTime.away > m.score.fullTime.home) {
+                winner = '2';
+            } else {
+                winner = 'X';
+            }
+        }
+
+        return {
+            external_id: m.id,
+            matchday: m.matchday,
+            start_date: m.utcDate,
+            status: m.status,
+            home_team_id: homeTeamId,
+            away_team_id: awayTeamId,
+            score_home: m.score.fullTime.home,
+            score_away: m.score.fullTime.away,
+            score_halftime_home: m.score.halfTime ? m.score.halfTime.home : null,
+            score_halftime_away: m.score.halfTime ? m.score.halfTime.away : null,
+            referee: m.referees && m.referees.length > 0 ? m.referees[0].name : null,
+            winner: winner
+        };
+    }).filter(m => m !== null);
+
+    let count = 0;
+    const operations = matchDataList.map(async (data) => {
+        const [match, created] = await Match.findOrCreate({
+            where: {
+                start_date: data.start_date,
+                home_team_id: data.home_team_id,
+                away_team_id: data.away_team_id
+            },
+            defaults: data
+        });
+
+        if (!created) {
+            await match.update(data);
+        }
+        count++;
+    });
+
+    await Promise.all(operations);
+    return count;
+};
+
+exports.importMatches = async (req, res, next) => {
     const axios = require('axios');
     const apiKey = process.env.FOOTBALL_DATA_API_KEY;
     const apiUrl = process.env.FOOTBALL_DATA_API_URL;
-    const leagueCode = 'PL'; // Unused if using direct URL, but handy fallback
+    const leagueCode = 'PL';
 
     if (!apiKey) {
-        return res.status(500).json({ message: 'API Key missing' });
+        return next(new AppError('API Key missing', 500));
     }
 
     try {
@@ -126,136 +211,55 @@ exports.importMatches = async (req, res) => {
             headers: { 'X-Auth-Token': apiKey }
         });
 
-        const matches = response.data.matches;
-
-        // --- 1. Batch Upsert Teams ---
-        const teamMap = new Map(); // name -> data
-        matches.forEach(m => {
-            teamMap.set(m.homeTeam.name, {
-                name: m.homeTeam.name,
-                short_name: m.homeTeam.shortName,
-                crest_url: m.homeTeam.crest,
-                tla: m.homeTeam.tla
-            });
-            teamMap.set(m.awayTeam.name, {
-                name: m.awayTeam.name,
-                short_name: m.awayTeam.shortName,
-                crest_url: m.awayTeam.crest,
-                tla: m.awayTeam.tla
-            });
-        });
-
-        const uniqueTeams = Array.from(teamMap.values());
-
-        // Upsert teams (requires unique constraint on 'name' for efficient updateOnDuplicate, 
-        // normally we use 'id' but we don't have it yet. 
-        // MySQL bulkCreate with updateOnDuplicate works if there's a unique key index.)
-        // Assuming 'name' is unique or we rely on just finding existing ones. 
-        // Safest approach without creating duplicates if model doesn't enforce unique name:
-        // 1. Find all existing teams. 2. Filter new ones. 3. Insert new ones.
-
-        const existingTeams = await Team.findAll();
-        const existingTeamMap = new Map(existingTeams.map(t => [t.name, t]));
-
-        const newTeams = uniqueTeams.filter(t => !existingTeamMap.has(t.name));
-
-        if (newTeams.length > 0) {
-            await Team.bulkCreate(newTeams);
-            // Re-fetch to get IDs of new teams
-            const allTeams = await Team.findAll();
-            allTeams.forEach(t => existingTeamMap.set(t.name, t));
-        }
-
-        // --- 2. Batch Upsert Matches ---
-        const matchDataList = matches.map(m => {
-            const homeTeamId = existingTeamMap.get(m.homeTeam.name)?.id;
-            const awayTeamId = existingTeamMap.get(m.awayTeam.name)?.id;
-
-            if (!homeTeamId || !awayTeamId) return null; // Should not happen
-
-            // Calculate winner
-            let winner = null;
-            if (m.status === 'FINISHED' && m.score.fullTime.home !== null && m.score.fullTime.away !== null) {
-                if (m.score.fullTime.home > m.score.fullTime.away) {
-                    winner = '1';
-                } else if (m.score.fullTime.away > m.score.fullTime.home) {
-                    winner = '2';
-                } else {
-                    winner = 'X';
-                }
-            }
-
-            return {
-                external_id: m.id,
-                matchday: m.matchday,
-                start_date: m.utcDate,
-                status: m.status,
-                home_team_id: homeTeamId,
-                away_team_id: awayTeamId,
-                score_home: m.score.fullTime.home,
-                score_away: m.score.fullTime.away,
-                score_halftime_home: m.score.halfTime ? m.score.halfTime.home : null,
-                score_halftime_away: m.score.halfTime ? m.score.halfTime.away : null,
-                referee: m.referees && m.referees.length > 0 ? m.referees[0].name : null,
-                winner: winner
-            };
-        }).filter(m => m !== null);
-
-        // We identify matches by start_date + home_team + away_team (virtual unique key for this logic)
-        // or we check if there's a unique constraint in DB.
-        // If no unique constraint, bulkCreate updateOnDuplicate might duplicate rows if PK not provided.
-        // Let's try to lookup existing matches first to be safe, or use a composite key if one exists.
-        // Since we don't have a stable external ID stored, we rely on logic.
-
-        // Optimization: Fetch all matches for this season/range to memory map?
-        // Or simpler: Just iterate and upsert promise.all if bulk is risky without PK.
-        // Given < 1000 matches, standard FindOrCreate is "slow" (HTTP overhead) but 
-        // purely database-side upsert is fast.
-
-        // Let's use loop with Promise.all for parallelism which is faster than sequential await
-        // but safer than bulkCreate without PKs.
-
-        let count = 0;
-        const operations = matchDataList.map(async (data) => {
-            const [match, created] = await Match.findOrCreate({
-                where: {
-                    start_date: data.start_date,
-                    home_team_id: data.home_team_id,
-                    away_team_id: data.away_team_id
-                },
-                defaults: data
-            });
-
-            if (!created) {
-                await match.update(data);
-            }
-            count++;
-        });
-
-        await Promise.all(operations);
-
+        const count = await upsertMatchesFromData(response.data.matches);
         res.json({ message: `Imported/Updated ${count} matches` });
     } catch (error) {
-        console.error('Import Error:', error.message);
-        res.status(500).json({ message: 'Failed to import matches', error: error.message });
+        next(new AppError(`Failed to import matches: ${error.message}`, 500));
     }
 };
 
-exports.fetchExternalMatch = async (req, res) => {
+exports.importMatchday = async (req, res, next) => {
+    const { matchday } = req.params;
+    const axios = require('axios');
+    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+    const apiUrl = process.env.FOOTBALL_DATA_API_URL;
+    const leagueCode = 'PL';
+
+    if (!apiKey) {
+        return next(new AppError('API Key missing', 500));
+    }
+
+    try {
+        const baseUrl = apiUrl || `https://api.football-data.org/v4/competitions/${leagueCode}/matches`;
+        const url = `${baseUrl}?matchday=${matchday}`;
+
+        const response = await axios.get(url, {
+            headers: { 'X-Auth-Token': apiKey }
+        });
+
+        const count = await upsertMatchesFromData(response.data.matches);
+        res.json({ message: `Imported/Updated ${count} matches for matchday ${matchday}` });
+    } catch (error) {
+        next(new AppError(`Failed to import matches for matchday ${matchday}: ${error.message}`, 500));
+    }
+};
+
+
+exports.fetchExternalMatch = async (req, res, next) => {
     const { id } = req.params;
     try {
         const match = await Match.findByPk(id);
         if (!match) {
-            return res.status(404).json({ message: "Match not found" });
+            throw new AppError("Match not found", 404);
         }
         if (!match.external_id) {
-            return res.status(400).json({ message: "Match does not have an external ID linked" });
+            throw new AppError("Match does not have an external ID linked", 400);
         }
 
         const axios = require('axios');
         const apiKey = process.env.FOOTBALL_DATA_API_KEY;
         if (!apiKey) {
-            return res.status(500).json({ message: 'API Key missing' });
+            throw new AppError('API Key missing', 500);
         }
 
         const url = `https://api.football-data.org/v4/matches/${match.external_id}`;
@@ -290,23 +294,22 @@ exports.fetchExternalMatch = async (req, res) => {
 
         res.json(match);
     } catch (error) {
-        console.error("Fetch External Error:", error);
-        res.status(500).json({ message: "Failed to fetch external match data", error: error.message });
+        next(error);
     }
 };
 
-exports.getMatchOdds = async (req, res) => {
+exports.getMatchOdds = async (req, res, next) => {
     try {
         const { id } = req.params;
 
         // Verify match start time
         const match = await Match.findByPk(id);
         if (!match) {
-            return res.status(404).json({ message: "Match not found" });
+            throw new AppError("Match not found", 404);
         }
 
         if (new Date() < new Date(match.start_date)) {
-            return res.status(403).json({ message: "Odds hidden until kickoff" });
+            throw new AppError("Odds hidden until kickoff", 403);
         }
 
         const odds = await Odd.findAll({
@@ -314,7 +317,6 @@ exports.getMatchOdds = async (req, res) => {
         });
         res.json(odds);
     } catch (error) {
-        console.error("Get Odds Error:", error);
-        res.status(500).json({ message: "Failed to fetch odds" });
+        next(error);
     }
 };

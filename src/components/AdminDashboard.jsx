@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { db } from "../firebase";
-import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { Users, BarChart3, Settings, Eye, Edit, Trash2, Shield, Trophy } from "lucide-react";
-import toast from "react-hot-toast";
+import React, { useState } from "react";
+import { useAdminUsers } from "../hooks/useAdminUsers";
+import { Users, BarChart3, Settings, Edit, Trash2, Shield, Trophy } from "lucide-react";
 import TeamManagement from "./TeamManagement";
 import MatchManagement from "./MatchManagement";
 
 export default function AdminDashboard() {
-    const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const {
+        users,
+        loading,
+        stats,
+        handleUpdateUser,
+        handleRoleChange,
+        deleteUser
+    } = useAdminUsers();
+
     const [activeTab, setActiveTab] = useState('overview');
     const [editingUser, setEditingUser] = useState(null);
 
@@ -18,101 +23,12 @@ export default function AdminDashboard() {
         return 'No Name';
     }
 
-    async function handleUpdateUser(e) {
+    async function onUpdateSubmit(e) {
         e.preventDefault();
         if (!editingUser) return;
-
-        try {
-            const userRef = doc(db, "users", editingUser.id);
-            await updateDoc(userRef, {
-                displayName: editingUser.displayName || null,
-                first_name: editingUser.first_name || null,
-                last_name: editingUser.last_name || null
-            });
-            toast.success("User updated successfully");
-            setEditingUser(null);
-            fetchUsers();
-        } catch (error) {
-            console.error("Error updating user:", error);
-            toast.error("Failed to update user");
-        }
+        const success = await handleUpdateUser(editingUser);
+        if (success) setEditingUser(null);
     }
-
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
-    async function fetchUsers() {
-        setLoading(true);
-        try {
-            const usersCol = collection(db, "users");
-            const userSnapshot = await getDocs(usersCol);
-            const userList = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setUsers(userList);
-        } catch (error) {
-            console.error("Error fetching users:", error);
-            toast.error("Failed to fetch users");
-        }
-        setLoading(false);
-    }
-
-    async function handleRoleChange(id, newRole) {
-        if (!window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
-        try {
-            await updateDoc(doc(db, "users", id), { role: newRole });
-            toast.success(`User role updated to ${newRole}`);
-            fetchUsers();
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to update role");
-        }
-    }
-
-    async function deleteUser(userId) {
-        if (!window.confirm('Are you sure you want to delete this user?')) {
-            return;
-        }
-
-        try {
-            await deleteDoc(doc(db, "users", userId));
-            toast.success('User deleted');
-            fetchUsers();
-        } catch (error) {
-            console.error(error);
-            toast.error('Failed to delete user');
-        }
-    }
-
-    const stats = [
-        {
-            name: 'Total Users',
-            value: users.length,
-            icon: Users,
-            change: '+0%',
-            changeType: 'increase',
-        },
-        {
-            name: 'Active Users',
-            value: users.filter(user => user.role).length,
-            icon: BarChart3,
-            change: '+0%',
-            changeType: 'increase',
-        },
-        {
-            name: 'Admins',
-            value: users.filter(user => user.role === 'admin').length,
-            icon: Settings,
-            change: '+0',
-            changeType: 'increase',
-        },
-        {
-            name: 'Managers',
-            value: users.filter(user => user.role === 'manager').length,
-            icon: Shield,
-            change: '+0',
-            changeType: 'increase',
-        },
-    ];
 
     const tabs = [
         { id: 'overview', name: 'Overview', icon: BarChart3 },
@@ -164,9 +80,17 @@ export default function AdminDashboard() {
                                     <td className="p-4">
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0 h-10 w-10">
-                                                <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center overflow-hidden">
+                                                <div className="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center overflow-hidden" style={{ backgroundColor: "var(--primary-600)" }}>
                                                     {user.photoURL ? (
-                                                        <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                                                        <img 
+                                                            src={user.photoURL} 
+                                                            alt="" 
+                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                            onError={(e) => { 
+                                                                e.target.onerror = null; 
+                                                                e.target.style.display = 'none'; 
+                                                            }} 
+                                                        />
                                                     ) : (
                                                         <span className="text-sm font-medium text-white">
                                                             {getDisplayName(user).charAt(0).toUpperCase()}
@@ -248,7 +172,11 @@ export default function AdminDashboard() {
                                     <div className="card-body">
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0">
-                                                <item.icon className="h-6 w-6 text-gray-400" />
+                                                {/* Use Icon directly if it's passed as a component or mapping */}
+                                                {item.name === 'Total Users' && <Users className="h-6 w-6 text-gray-400" />}
+                                                {item.name === 'Active Users' && <BarChart3 className="h-6 w-6 text-gray-400" />}
+                                                {item.name === 'Admins' && <Settings className="h-6 w-6 text-gray-400" />}
+                                                {item.name === 'Managers' && <Shield className="h-6 w-6 text-gray-400" />}
                                             </div>
                                             <div className="ml-5 w-0 flex-1">
                                                 <dl>
@@ -258,16 +186,6 @@ export default function AdminDashboard() {
                                                     <dd className="flex items-baseline">
                                                         <div className="text-2xl font-semibold">
                                                             {item.value}
-                                                        </div>
-                                                        <div
-                                                            className={`ml-2 flex items-baseline text-sm font-semibold ${item.changeType === 'increase'
-                                                                ? 'text-green-600'
-                                                                : item.changeType === 'decrease'
-                                                                    ? 'text-red-600'
-                                                                    : 'text-gray-500'
-                                                                }`}
-                                                        >
-                                                            {item.change}
                                                         </div>
                                                     </dd>
                                                 </dl>
@@ -309,7 +227,6 @@ export default function AdminDashboard() {
     return (
         <div className="space-y-6">
             {/* Tabs */}
-            {/* Tabs */}
             <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8">
                     {tabs.map((tab) => (
@@ -336,7 +253,7 @@ export default function AdminDashboard() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
                         <h3 className="text-lg font-bold mb-4">Edit User</h3>
-                        <form onSubmit={handleUpdateUser} className="space-y-4">
+                        <form onSubmit={onUpdateSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Display Name (Optional)</label>
                                 <input
