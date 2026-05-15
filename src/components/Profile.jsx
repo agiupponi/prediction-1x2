@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import { User, Mail, Camera } from "lucide-react";
 
 export default function Profile() {
-    const { currentUser, logout } = useAuth();
+    const { currentUser, logout, updateUserSession } = useAuth();
     const nameRef = useRef();
     const fileInputRef = useRef();
     const [photo, setPhoto] = useState(null);
@@ -57,6 +57,10 @@ export default function Profile() {
                 // Also update in Firestore
                 const userRef = doc(db, "users", currentUser.uid);
                 await updateDoc(userRef, {
+                    displayName: nameRef.current.value,
+                    photoURL: photoURL
+                });
+                updateUserSession({
                     displayName: nameRef.current.value,
                     photoURL: photoURL
                 });

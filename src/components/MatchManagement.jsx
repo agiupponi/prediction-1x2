@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Download } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import MatchEditModal from './MatchEditModal';
 
 const MatchManagement = () => {
     const [matches, setMatches] = useState([]);
@@ -9,7 +10,7 @@ const MatchManagement = () => {
     const [loading, setLoading] = useState(true);
     const [fetchingExternal, setFetchingExternal] = useState(false);
     const [editingMatch, setEditingMatch] = useState(null);
-    const [showForm, setShowForm] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const [expandedMatchdays, setExpandedMatchdays] = useState({});
 
@@ -34,26 +35,12 @@ const MatchManagement = () => {
             setLoading(false);
         }
     };
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 20;
 
     // Search
     const [searchFilters, setSearchFilters] = useState({
         matchday: '',
         status: '',
         team: ''
-    });
-
-    const [formData, setFormData] = useState({
-        matchday: '',
-        homeTeamId: '',
-        awayTeamId: '',
-        referee: '',
-        startDate: '',
-        status: 'TIMED',
-        fullTimeScoreHome: '',
-        fullTimeScoreAway: '',
-        winner: ''
     });
 
     useEffect(() => {
@@ -78,9 +65,6 @@ const MatchManagement = () => {
                 if (upcomingRes.data && upcomingRes.data.matchday) {
                     setExpandedMatchdays({ [upcomingRes.data.matchday]: true });
                 } else {
-                    // Fallback: Expand the last one or none? 
-                    // User said "Start with all closed... except current". 
-                    // If no current found, maybe just keep closed.
                     setExpandedMatchdays({});
                 }
             } catch (err) {
@@ -95,7 +79,6 @@ const MatchManagement = () => {
         }
     };
 
-    // --- External Fetch Logic (Ported from Server) ---
     // --- External Fetch Logic (Ported from Server) ---
     const handleFetchExternal = async () => {
         if (!window.confirm('This will fetch matches from the Football Data API. Continue?')) return;
@@ -113,69 +96,31 @@ const MatchManagement = () => {
         }
     };
 
+    const handleFetchMatchday = async (matchday) => {
+        if (!window.confirm(`Fetch all matches for matchday ${matchday}?`)) return;
+
+        setFetchingExternal(true);
+        try {
+            const res = await api.post(`/matches/import/matchday/${matchday}`);
+            toast.success(res.data.message);
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Fetch failed');
+        } finally {
+            setFetchingExternal(false);
+        }
+    };
+
     // --- Helpers ---
     const getTeamName = (id) => {
         const t = teams.find(x => x.id === id);
         return t ? t.short_name : 'Unknown';
     };
 
-    const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
     const handleEdit = (match) => {
         setEditingMatch(match);
-        setFormData({
-            matchday: match.matchday,
-            homeTeamId: match.home_team_id,
-            awayTeamId: match.away_team_id,
-            referee: match.referee || '',
-            startDate: match.start_date ? match.start_date.slice(0, 16) : '',
-            status: match.status,
-            fullTimeScoreHome: match.score_home || '',
-            fullTimeScoreAway: match.score_away || '',
-            winner: match.winner || ''
-        });
-        setShowForm(true);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const payload = {
-                matchday: parseInt(formData.matchday),
-                home_team_id: formData.homeTeamId,
-                away_team_id: formData.awayTeamId,
-                referee: formData.referee,
-                start_date: new Date(formData.startDate).toISOString(),
-                status: formData.status,
-                score_home: formData.fullTimeScoreHome ? parseInt(formData.fullTimeScoreHome) : null,
-                score_away: formData.fullTimeScoreAway ? parseInt(formData.fullTimeScoreAway) : null,
-                // winner: formData.winner || null // Model might not support 'winner' field?
-                // Let's check Match.js model.
-                // Model: Match.js
-                // score_home, score_away, matchday, start_date, status.
-                // No 'winner' or 'referee' column in my implementation of Match.js!
-                // I need to add them or ignore them.
-                // For now, I will ignore them in payload to avoid error, or I should update Model.
-                // The frontend uses 'winner' in logic.
-                // I should update Model later if needed. For now I omit them from payload to keep it simple.
-            };
-
-            if (editingMatch) {
-                await api.put(`/matches/${editingMatch.id}`, payload);
-                toast.success("Match updated");
-            } else {
-                await api.post('/matches', payload);
-                toast.success("Match created");
-            }
-            setShowForm(false);
-            setEditingMatch(null);
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            toast.error("Error saving match");
-        }
+        setIsModalOpen(true);
     };
 
     const handleDelete = async (id) => {
@@ -216,77 +161,37 @@ const MatchManagement = () => {
                 <div className="flex gap-2">
                     <button onClick={handleFetchExternal} disabled={fetchingExternal} className="btn btn-secondary">
                         <Download size={16} />
-                        {fetchingExternal ? ' Fecthing...' : ' Fetch External'}
+                        {fetchingExternal ? ' Fetching...' : ' Fetch External'}
                     </button>
-                    <button onClick={() => { setEditingMatch(null); setShowForm(true); }} className="btn btn-primary">
+                    <button onClick={() => { setEditingMatch(null); setIsModalOpen(true); }} className="btn btn-primary">
                         <Plus size={16} /> Add Match
                     </button>
                 </div>
             </div>
 
-            {showForm && (
-                <div className="card p-4">
-                    <h3 className="font-bold mb-4">{editingMatch ? 'Edit' : 'Add'} Match</h3>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label>Matchday</label>
-                                <input name="matchday" type="number" required value={formData.matchday} onChange={handleInputChange} />
-                            </div>
-                            <div>
-                                <label>Date</label>
-                                <input name="startDate" type="datetime-local" required value={formData.startDate} onChange={handleInputChange} />
-                            </div>
-                            <div>
-                                <label>Status</label>
-                                <select name="status" value={formData.status} onChange={handleInputChange} className="input">
-                                    <option value="TIMED">Scheduled</option>
-                                    <option value="FINISHED">Finished</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label>Home Team</label>
-                                <select name="homeTeamId" required value={formData.homeTeamId} onChange={handleInputChange} className="input">
-                                    <option value="">Select Team</option>
-                                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label>Away Team</label>
-                                <select name="awayTeamId" required value={formData.awayTeamId} onChange={handleInputChange} className="input">
-                                    <option value="">Select Team</option>
-                                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        {formData.status === 'FINISHED' && (
-                            <div className="grid grid-cols-3 gap-4 border-t pt-4">
-                                <input placeholder="Home Score" name="fullTimeScoreHome" type="number" value={formData.fullTimeScoreHome} onChange={handleInputChange} />
-                                <input placeholder="Away Score" name="fullTimeScoreAway" type="number" value={formData.fullTimeScoreAway} onChange={handleInputChange} />
-                                <select name="winner" value={formData.winner} onChange={handleInputChange} className="input">
-                                    <option value="">Winner</option>
-                                    <option value="1">1 (Home)</option>
-                                    <option value="X">X (Draw)</option>
-                                    <option value="2">2 (Away)</option>
-                                </select>
-                            </div>
-                        )}
-                        <div className="flex justify-end gap-2">
-                            <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">Cancel</button>
-                            <button type="submit" className="btn btn-primary">Save</button>
-                        </div>
-                    </form>
-                </div>
-            )}
+            <MatchEditModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                match={editingMatch}
+                teams={teams}
+                onSave={fetchData}
+            />
 
             {/* Group by Matchday */}
             {Object.keys(groupedMatches).sort((a, b) => Number(a) - Number(b)).map(matchday => (
                 <div key={matchday} className="card overflow-hidden mb-6">
-                    <div className="bg-gray-100 px-4 py-2 font-bold flex justify-between items-center cursor-pointer" onClick={() => toggleMatchday(matchday)}>
-                        <span>Matchday {matchday}</span>
-                        <span className="text-xs text-gray-500">{groupedMatches[matchday].length} matches</span>
+                    <div className="bg-gray-100 px-4 py-2 font-bold flex justify-between items-center">
+                        <div className="flex-1 cursor-pointer" onClick={() => toggleMatchday(matchday)}>
+                            <span>Matchday {matchday}</span>
+                            <span className="ml-2 text-xs text-gray-500 font-normal">{groupedMatches[matchday].length} matches</span>
+                        </div>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleFetchMatchday(matchday); }}
+                            className="btn btn-secondary py-1 px-3 text-xs flex items-center gap-1"
+                            title="Fetch matches for this matchday"
+                        >
+                            <Download size={14} /> Fetch Day
+                        </button>
                     </div>
 
                     {(expandedMatchdays[matchday]) && (
@@ -310,9 +215,40 @@ const MatchManagement = () => {
                                             {new Date(m.start_date).toLocaleDateString()} {new Date(m.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.status === 'FINISHED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                {m.status === 'FINISHED' ? `${m.score_home} - ${m.score_away}` : 'Scheduled'}
-                                            </span>
+                                            {(() => {
+                                                switch (m.status) {
+                                                    case 'FINISHED':
+                                                        return (
+                                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                {m.score_home} - {m.score_away} (FT)
+                                                            </span>
+                                                        );
+                                                    case 'IN_PLAY':
+                                                        return (
+                                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 animate-pulse">
+                                                                {m.score_home !== null ? `${m.score_home} - ${m.score_away}` : '0 - 0'} (LIVE)
+                                                            </span>
+                                                        );
+                                                    case 'PAUSED':
+                                                        return (
+                                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                                {m.score_home !== null ? `${m.score_home} - ${m.score_away}` : '0 - 0'} (HT)
+                                                            </span>
+                                                        );
+                                                    case 'POSTPONED':
+                                                        return (
+                                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                                Postponed
+                                                            </span>
+                                                        );
+                                                    default:
+                                                        return (
+                                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                {new Date(m.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        );
+                                                }
+                                            })()}
                                         </td>
                                         <td className="p-4 text-right flex justify-end gap-2">
                                             {m.external_id && (

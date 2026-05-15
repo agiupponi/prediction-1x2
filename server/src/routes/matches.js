@@ -8,6 +8,7 @@ router.get('/matchdays', verifyToken, matchController.getMatchdays);
 router.get('/', verifyToken, matchController.getAllMatches);
 router.post('/', verifyToken, isAdmin, matchController.createMatch);
 router.post('/import', verifyToken, isAdmin, matchController.importMatches); // New Import Route
+router.post('/import/matchday/:matchday', verifyToken, isAdmin, matchController.importMatchday); // Matchday Import Route
 router.post('/:id/fetch-external', verifyToken, isAdmin, matchController.fetchExternalMatch); // Single Sync
 router.put('/:id', verifyToken, isAdmin, matchController.updateMatch);
 router.delete('/:id', verifyToken, isAdmin, matchController.deleteMatch);

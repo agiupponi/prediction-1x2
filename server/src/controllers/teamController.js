@@ -1,27 +1,26 @@
 const Team = require('../models/Team');
+const AppError = require('../utils/AppError');
 
-exports.getAllTeams = async (req, res) => {
+exports.getAllTeams = async (req, res, next) => {
     try {
         const teams = await Team.findAll();
         res.json(teams);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
+        next(error);
     }
 };
 
-exports.createTeam = async (req, res) => {
+exports.createTeam = async (req, res, next) => {
     try {
         // Expecting { name, short_name, crest_url }
         const team = await Team.create(req.body);
         res.status(201).json(team);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error creating team' });
+        next(error);
     }
 };
 
-exports.updateTeam = async (req, res) => {
+exports.updateTeam = async (req, res, next) => {
     try {
         const { id } = req.params;
         const [updated] = await Team.update(req.body, {
@@ -31,14 +30,13 @@ exports.updateTeam = async (req, res) => {
             const updatedTeam = await Team.findByPk(id);
             return res.json(updatedTeam);
         }
-        throw new Error('Team not found');
+        throw new AppError('Team not found', 404);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error updating team' });
+        next(error);
     }
 };
 
-exports.deleteTeam = async (req, res) => {
+exports.deleteTeam = async (req, res, next) => {
     try {
         const { id } = req.params;
         const deleted = await Team.destroy({
@@ -47,9 +45,8 @@ exports.deleteTeam = async (req, res) => {
         if (deleted) {
             return res.status(204).send();
         }
-        throw new Error('Team not found');
+        throw new AppError('Team not found', 404);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error deleting team' });
+        next(error);
     }
 };

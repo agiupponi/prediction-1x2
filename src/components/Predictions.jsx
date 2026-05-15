@@ -1,243 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
-import toast from 'react-hot-toast';
+import { usePredictions } from '../hooks/usePredictions';
 import { CheckCircle, XCircle, Clock, Calendar, ChevronLeft, ChevronRight, AlertCircle, Trophy } from 'lucide-react';
 import StandingModal from './StandingModal';
+import { getMatchWinner } from '../utils/matchUtils';
 
 export default function Predictions() {
     const { currentUser } = useAuth();
-    const [matches, setMatches] = useState([]);
-    const [predictions, setPredictions] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [currentMatchday, setCurrentMatchday] = useState(null);
-    const [teams, setTeams] = useState({});
-    const [expandedMatchId, setExpandedMatchId] = useState(null);
-    const [oddsData, setOddsData] = useState({});
-    const [matchPredictions, setMatchPredictions] = useState({});
+    const {
+        matches,
+        predictions,
+        loading,
+        currentMatchday,
+        setCurrentMatchday,
+        availableMatchdays,
+        expandedMatchId,
+        oddsData,
+        matchPredictions,
+        handleVote,
+        toggleMatchExpand,
+        navigateMatchday,
+        getTeam
+    } = usePredictions();
+
     const [isStandingModalOpen, setIsStandingModalOpen] = useState(false);
-
-    const [availableMatchdays, setAvailableMatchdays] = useState([]);
-
-    useEffect(() => {
-        initializeView();
-    }, []);
-
-    useEffect(() => {
-        if (currentMatchday) {
-            fetchMatchdayData();
-        }
-    }, [currentMatchday, currentUser]);
-
-    const initializeView = async () => {
-        try {
-            // Fetch teams
-            const teamsRes = await api.get('/teams');
-            const teamsMap = {};
-            if (teamsRes.data) {
-                teamsRes.data.forEach(t => teamsMap[t.id] = t);
-            }
-            setTeams(teamsMap);
-
-            // Fetch available matchdays
-            let mds = [];
-            try {
-                const mdRes = await api.get('/matches/matchdays');
-                mds = mdRes.data || [];
-                setAvailableMatchdays(mds);
-            } catch (err) {
-                console.error("Failed to fetch matchdays", err);
-            }
-
-            // Fetch upcoming match to set matchday
-            try {
-                const upcomingRes = await api.get('/matches/upcoming');
-                if (upcomingRes.data && upcomingRes.data.matchday) {
-                    setCurrentMatchday(upcomingRes.data.matchday);
-                } else {
-                    // Default to first available or 1
-                    setCurrentMatchday(mds.length > 0 ? mds[0] : 1);
-                }
-            } catch (err) {
-                console.log("No upcoming matches or error:", err);
-                setCurrentMatchday(mds.length > 0 ? mds[0] : 1);
-            }
-
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to load initial data");
-        }
-    };
-
-    const fetchMatchdayData = async () => {
-        setLoading(true);
-        try {
-            // Fetch matches for matchday
-            const matchesRes = await api.get(`/matches?matchday=${currentMatchday}`);
-            setMatches(matchesRes.data || []);
-
-            // Fetch user predictions
-            if (currentUser) {
-                const predsRes = await api.get('/predictions');
-                const predsMap = {};
-                if (predsRes.data) {
-                    predsRes.data.forEach(p => {
-                        predsMap[p.match_id] = p.prediction;
-                    });
-                }
-                setPredictions(predsMap);
-            } else {
-                setPredictions({});
-            }
-
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to load matches");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleVote = async (matchId, value) => {
-        if (!currentUser) {
-            toast.error("Please log in to vote");
-            return;
-        }
-
-        const oldPrediction = predictions[matchId];
-        // Optimistic update
-        setPredictions(prev => ({ ...prev, [matchId]: value }));
-
-        try {
-            await api.post('/predictions', {
-                matchId,
-                prediction: value
-            });
-            toast.success("Prediction saved");
-
-            // Refetch details for this match if open to update list instantly
-            if (expandedMatchId === matchId) {
-                const res = await api.get(`/predictions/match/${matchId}/all`);
-                setMatchPredictions(prev => ({ ...prev, [matchId]: res.data }));
-            }
-
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to save prediction");
-            setPredictions(prev => ({ ...prev, [matchId]: oldPrediction }));
-        }
-    };
-
-    const toggleMatchExpand = async (matchId) => {
-        if (expandedMatchId === matchId) {
-            setExpandedMatchId(null);
-        } else {
-            setExpandedMatchId(matchId);
-
-            // Fetch Odds
-            if (!oddsData[matchId]) {
-                try {
-                    const res = await api.get(`/matches/${matchId}/odds`);
-                    setOddsData(prev => ({ ...prev, [matchId]: res.data }));
-                } catch (error) {
-                    console.error("Failed to fetch odds", error);
-                }
-            }
-
-            // Fetch User Predictions List
-            // Always fetch fresh to get latest updates
-            try {
-                const res = await api.get(`/predictions/match/${matchId}/all`);
-                setMatchPredictions(prev => ({ ...prev, [matchId]: res.data }));
-            } catch (error) {
-                console.error("Failed to fetch match predictions", error);
-            }
-        }
-    };
-
-    const getTeam = (id) => teams[id] || { name: 'Unknown', short_name: 'UNK', crest_url: '' };
-
-    const filteredMatches = matches
-        .filter(m => m.matchday == currentMatchday) // Loose equality mainly just in case, but strict is fine if types match
-        .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
-
-    // Helper for styling
-    const getBtnClass = (match, type) => {
-        const isSelected = predictions[match.id] === type;
-        const isWinner = match.status === 'FINISHED' && match.winner === type; // Assuming 'winner' logic exists or computed? 
-        // Backend match model doesn't store 'winner' property explicitly, usually computed from score_home/away.
-        // I need to verify how 'winner' is derived.
-        // In previous implementation it might have been in Firestore doc.
-        // I should compute 'winner' here if not present.
-
-        let winner = match.winner;
-        if (!winner && match.status === 'FINISHED' && match.score_home !== null && match.score_away !== null) {
-            if (match.score_home > match.score_away) winner = '1';
-            else if (match.score_away > match.score_home) winner = '2';
-            else winner = 'X';
-        }
-
-        const isCorrectPrediction = match.status === 'FINISHED' && isSelected && winner === type;
-        const isWrongPrediction = match.status === 'FINISHED' && isSelected && winner !== type;
-        const base = "flex-1 py-2 rounded-md text-sm font-bold transition-all border ";
-
-        // Highlight the winning option in green for finished matches
-        if (match.status === 'FINISHED') {
-            if (isCorrectPrediction) {
-                return base + " border-green-700 shadow-md cursor-default bg-green-700 text-black"; // Reduced complexity
-            }
-            if (isWrongPrediction) {
-                return base + " border-red-600 shadow-md cursor-default bg-red-600 text-white";
-            }
-            if (!isSelected && winner === type) { // Winner but not selected
-                return base + " border-green-200 shadow-md cursor-default bg-green-200 text-black";
-            }
-            return base + " opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200";
-        }
-
-        // For ongoing matches
-        if (isSelected) {
-            // Highlight pending predictions in "Orange-Yellow" (Amber) as requested
-            return base + " bg-amber-500 text-white border-amber-500 shadow-md";
-        }
-        return base + " bg-white text-black hover:bg-gray-50 border-gray-200";
-    };
-
-    const getCardBackgroundClass = (match) => {
-        if (match.status !== 'FINISHED' || !predictions[match.id]) {
-            return '';
-        }
-
-        let winner = match.winner;
-        if (!winner && match.status === 'FINISHED' && match.score_home !== null && match.score_away !== null) {
-            if (match.score_home > match.score_away) winner = '1';
-            else if (match.score_away > match.score_home) winner = '2';
-            else winner = 'X';
-        }
-
-        const userPrediction = predictions[match.id];
-        const isCorrect = userPrediction === winner;
-
-        return isCorrect ? 'match-card-correct' : 'match-card-incorrect';
-    };
-
-    // Helper to navigate matchdays
-    const navigateMatchday = (direction) => {
-        if (availableMatchdays.length === 0) {
-            // Fallback for simple increment if no list
-            setCurrentMatchday(prev => direction === 'next' ? prev + 1 : Math.max(1, prev - 1));
-            return;
-        }
-
-        const currentIndex = availableMatchdays.indexOf(currentMatchday);
-        if (currentIndex === -1) return; // Should not happen if sync
-
-        if (direction === 'prev' && currentIndex > 0) {
-            setCurrentMatchday(availableMatchdays[currentIndex - 1]);
-        } else if (direction === 'next' && currentIndex < availableMatchdays.length - 1) {
-            setCurrentMatchday(availableMatchdays[currentIndex + 1]);
-        }
-    };
 
     if (loading || !currentMatchday) return <div className="p-8 text-center text-gray-500">Loading matches...</div>;
 
@@ -281,7 +67,7 @@ export default function Predictions() {
                     )}
                     <button
                         onClick={() => setIsStandingModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 transition-colors uppercase font-bold text-sm tracking-wider font-oswald"
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-800 transition-colors uppercase font-bold text-sm tracking-wider font-oswald"
                     >
                         <Trophy size={16} /> Standings
                     </button>
@@ -289,17 +75,12 @@ export default function Predictions() {
             </div>
 
             <div className="flex flex-wrap gap-4 items-start">
-                {filteredMatches.map(match => {
+                {matches.map(match => {
                     const home = getTeam(match.home_team_id);
                     const away = getTeam(match.away_team_id);
                     const isLocked = match.status === 'FINISHED' || new Date(match.start_date) < new Date();
 
-                    let winner = match.winner;
-                    if (!winner && match.status === 'FINISHED' && match.score_home !== null && match.score_away !== null) {
-                        if (match.score_home > match.score_away) winner = '1';
-                        else if (match.score_away > match.score_home) winner = '2';
-                        else winner = 'X';
-                    }
+                    const winner = getMatchWinner(match);
 
                     return (
                         <div
@@ -364,13 +145,7 @@ export default function Predictions() {
                                 <div className="grid grid-cols-3 gap-0 border border-gray-200 bg-gray-50">
                                     {['1', 'X', '2'].map(type => {
                                         const isSelected = predictions[match.id] === type;
-                                        // Re-calculate winner logic locally for display
-                                        let computedWinner = match.winner;
-                                        if (!computedWinner && match.status === 'FINISHED' && match.score_home !== null) {
-                                            if (match.score_home > match.score_away) computedWinner = '1';
-                                            else if (match.score_away > match.score_home) computedWinner = '2';
-                                            else computedWinner = 'X';
-                                        }
+                                        const computedWinner = getMatchWinner(match);
 
                                         const isCorrect = match.status === 'FINISHED' && isSelected && computedWinner === type;
                                         const isWrong = match.status === 'FINISHED' && isSelected && computedWinner !== type;
@@ -431,15 +206,15 @@ export default function Predictions() {
                                                             const type = odd.prediction;
                                                             const partial = odd.partial_prediction;
                                                             const total = odd.total_predictions;
-                                                            const oddValue = odd.odd; // Use odd value if needed, or remove
                                                             const percentage = total ? (partial / total) * 100 : 0;
 
                                                             return (
                                                                 <div key={type} className="flex items-center text-xs font-medium">
                                                                     <div className="w-12 text-gray-500 font-bold">{type === '1' ? 'HOME' : type === 'X' ? 'DRAW' : 'AWAY'}</div>
-                                                                    <div className="flex-1 h-3 bg-gray-200 mx-2 relative">
+                                                                    <div className="flex-1 h-3 bg-gray-200 mx-2 relative rounded overflow-hidden">
                                                                         <div
-                                                                            className={`h-full absolute top-0 left-0 ${type === '1' ? 'bg-blue-600' : type === 'X' ? 'bg-gray-500' : 'bg-red-600'}`}
+                                                                            className={`h-full absolute top-0 left-0 transition-all duration-500 ${type === '1' ? 'bg-blue-600' : type === 'X' ? 'bg-gray-500' : 'bg-red-600'}`}
+                                                                            style={{ width: `${percentage}%` }}
                                                                         ></div>
                                                                     </div>
                                                                     <div className="w-10 text-right font-bold text-gray-700">{percentage.toFixed(0)}%</div>
@@ -450,21 +225,27 @@ export default function Predictions() {
 
                                                     {matchPredictions[match.id] && matchPredictions[match.id].length > 0 && (
                                                         <div className="pt-3 border-t border-gray-200">
-                                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-1 tracking-wider font-oswald">Friends</h4>
-                                                            <div className="space-y-4">
-                                                                <div className="space-y-1">
-                                                                    {matchPredictions[match.id].map((p, idx) => (
-                                                                        <div key={p.displayName} className="flex items-center text-xs font-medium">
-                                                                            <div className="w-12 text-gray-500 font-bold uppercase">{p.displayName}</div>
-                                                                            <div className="flex-1 h-3 bg-gray-200 mx-2 relative">
-                                                                                <div
-                                                                                    className={`h-full absolute top-0 left-0`}
-                                                                                ></div>
+                                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider font-oswald">Friends</h4>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {matchPredictions[match.id].map(p => {
+                                                                    const pickColor = p.prediction === '1' ? 'bg-blue-100 text-blue-800 border-blue-300' : p.prediction === 'X' ? 'bg-gray-100 text-gray-800 border-gray-300' : 'bg-red-100 text-red-800 border-red-300';
+                                                                    return (
+                                                                        <div key={p.user_id || p.displayName} className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-xs font-bold ${pickColor}`}>
+                                                                            <div className="w-4 h-4 rounded-full bg-primary-600 flex items-center justify-center overflow-hidden shrink-0 text-[8px] text-white font-bold" style={{ backgroundColor: "var(--primary-600)" }}>
+                                                                                {p.photoURL ? (
+                                                                                    <img 
+                                                                                        src={p.photoURL} 
+                                                                                        alt="" 
+                                                                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                                                        onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                                                                                    />
+                                                                                ) : (p.displayName ? p.displayName.charAt(0).toUpperCase() : 'U')}
                                                                             </div>
-                                                                            <div className="w-10 text-right font-bold text-gray-700">{p.prediction}</div>
+                                                                            <span className="max-w-[100px] truncate uppercase">{p.displayName}</span>
+                                                                            <span className="px-1.5 py-0.5 rounded bg-white text-black font-black text-[10px] shadow-sm">{p.prediction}</span>
                                                                         </div>
-                                                                    ))}
-                                                                </div>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     )}
@@ -492,7 +273,7 @@ export default function Predictions() {
                     );
                 })}
 
-                {filteredMatches.length === 0 && !loading && (
+                {matches.length === 0 && !loading && (
                     <div className="text-center py-10 text-gray-400 w-full">No matches scheduled for this matchday.</div>
                 )}
             </div>

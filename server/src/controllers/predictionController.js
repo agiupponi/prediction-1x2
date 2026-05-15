@@ -1,11 +1,13 @@
 const Prediction = require('../models/Prediction');
 const Match = require('../models/Match');
 const admin = require('../config/firebase');
+const userService = require('../services/userService');
 const { sequelize } = require('../config/db');
+const AppError = require('../utils/AppError');
 
 
 
-exports.getLeaderboard = async (req, res) => {
+exports.getLeaderboard = async (req, res, next) => {
     try {
         const { matchday } = req.query;
         let results;
@@ -33,39 +35,35 @@ exports.getLeaderboard = async (req, res) => {
             `);
         }
 
-        // Fetch all users from Firestore to map names
-        const usersSnapshot = await admin.firestore().collection('users').get();
-        const usersMap = {};
-        usersSnapshot.forEach(doc => {
-            const data = doc.data();
-            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
-        });
+        // Fetch all users from optimized in-memory cache to map names
+        const usersMap = await userService.getCachedUsersMap();
 
         // Map database results to frontend format
         let rankCounter = 1;
         const leaderboard = results
             .map(entry => {
                 const uid = entry.user_id;
+                const userObj = usersMap[uid];
 
-                if (!usersMap[uid]) return null;
+                if (!userObj) return null;
 
                 return {
                     rank: rankCounter++,
                     user_id: uid,
                     points: parseInt(entry.points || 0), // Sum might be string in some drivers
-                    displayName: usersMap[uid]
+                    displayName: userObj.displayName,
+                    photoURL: userObj.photoURL
                 };
             })
             .filter(e => e !== null);
 
         res.json(leaderboard);
     } catch (error) {
-        console.error("Leaderboard error:", error);
-        res.status(500).json({ message: "Error fetching leaderboard" });
+        next(error);
     }
 };
 
-exports.getOddLeaderboard = async (req, res) => {
+exports.getOddLeaderboard = async (req, res, next) => {
     try {
         const { matchday } = req.query;
         let results;
@@ -95,39 +93,35 @@ exports.getOddLeaderboard = async (req, res) => {
             `);
         }
 
-        // Fetch all users from Firestore to map names
-        const usersSnapshot = await admin.firestore().collection('users').get();
-        const usersMap = {};
-        usersSnapshot.forEach(doc => {
-            const data = doc.data();
-            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
-        });
+        // Fetch all users from optimized in-memory cache to map names
+        const usersMap = await userService.getCachedUsersMap();
 
         // Map database results to frontend format
         let rankCounter = 1;
         const leaderboard = results
             .map(entry => {
                 const uid = entry.user_id;
+                const userObj = usersMap[uid];
 
-                if (!usersMap[uid]) return null;
+                if (!userObj) return null;
 
                 return {
                     rank: rankCounter++,
                     user_id: uid,
                     points: parseFloat(entry.points || 0).toFixed(2),
-                    displayName: usersMap[uid]
+                    displayName: userObj.displayName,
+                    photoURL: userObj.photoURL
                 };
             })
             .filter(e => e !== null);
 
         res.json(leaderboard);
     } catch (error) {
-        console.error("Odds Leaderboard error:", error);
-        res.status(500).json({ message: "Error fetching odds leaderboard" });
+        next(error);
     }
 };
 
-exports.getHeadToHeadLeaderboard = async (req, res) => {
+exports.getHeadToHeadLeaderboard = async (req, res, next) => {
     try {
         const { matchday } = req.query;
         let results;
@@ -157,12 +151,7 @@ exports.getHeadToHeadLeaderboard = async (req, res) => {
             `);
         }
 
-        const usersSnapshot = await admin.firestore().collection('users').get();
-        const usersMap = {};
-        usersSnapshot.forEach(doc => {
-            const data = doc.data();
-            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
-        });
+        const usersMap = await userService.getCachedUsersMap();
 
         // Calculate sortable points (Wins then Draws)
         const rankedResults = results.map(r => {
@@ -187,8 +176,9 @@ exports.getHeadToHeadLeaderboard = async (req, res) => {
         const leaderboard = rankedResults
             .map(entry => {
                 const uid = entry.user_id;
+                const userObj = usersMap[uid];
 
-                if (!usersMap[uid]) return null;
+                if (!userObj) return null;
 
                 return {
                     rank: rankCounter++,
@@ -197,19 +187,19 @@ exports.getHeadToHeadLeaderboard = async (req, res) => {
                     win: entry.wins,     // Add specific fields
                     draw: entry.draws,
                     loss: entry.losses,
-                    displayName: usersMap[uid]
+                    displayName: userObj.displayName,
+                    photoURL: userObj.photoURL
                 };
             })
             .filter(e => e !== null);
 
         res.json(leaderboard);
     } catch (error) {
-        console.error("Head to Head Leaderboard error:", error);
-        res.status(500).json({ message: "Error fetching head to head leaderboard" });
+        next(error);
     }
 };
 
-exports.getStats = async (req, res) => {
+exports.getStats = async (req, res, next) => {
     try {
         const userId = req.user.uid;
 
@@ -259,12 +249,11 @@ exports.getStats = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error fetching stats' });
+        next(error);
     }
 };
 
-exports.getPredictions = async (req, res) => {
+exports.getPredictions = async (req, res, next) => {
     try {
         const { matchId } = req.query;
         const userId = req.user.uid;
@@ -282,32 +271,31 @@ exports.getPredictions = async (req, res) => {
         // Or just array. Let's return array for REST compliance, map it in frontend.
         res.json(predictions);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error' });
+        next(error);
     }
 };
 
-exports.upsertPrediction = async (req, res) => {
+exports.upsertPrediction = async (req, res, next) => {
     try {
         const userId = req.user.uid;
         const { matchId, prediction } = req.body;
 
         if (!['1', 'X', '2'].includes(prediction)) {
-            return res.status(400).json({ message: 'Invalid prediction value' });
+            throw new AppError('Invalid prediction value', 400);
         }
 
         // Check match existence and start time
         const match = await Match.findByPk(matchId);
         if (!match) {
-            return res.status(404).json({ message: 'Match not found' });
+            throw new AppError('Match not found', 404);
         }
 
         if (new Date(match.start_date) < new Date()) {
-            return res.status(403).json({ message: 'Match has already started' });
+            throw new AppError('Match has already started', 403);
         }
 
         if (['IN_PLAY', 'PAUSED', 'FINISHED'].includes(match.status)) {
-            return res.status(403).json({ message: 'Match is already in progress or finished' });
+            throw new AppError('Match is already in progress or finished', 403);
         }
 
         // Check existing validation
@@ -336,25 +324,24 @@ exports.upsertPrediction = async (req, res) => {
 
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error saving prediction' });
+        next(error);
     }
 };
 
-exports.getAllPredictionsForMatch = async (req, res) => {
+exports.getAllPredictionsForMatch = async (req, res, next) => {
     try {
         const { matchId } = req.params;
 
         // Verify match start time
         const match = await Match.findByPk(matchId);
         if (!match) {
-            return res.status(404).json({ message: "Match not found" });
+            throw new AppError("Match not found", 404);
         }
 
         // Allow if match is finished or started (assuming start_date is in UTC or comparable format)
         // If today is before start_date, deny access
         if (new Date() < new Date(match.start_date)) {
-            return res.status(403).json({ message: "Predictions hidden until kickoff" });
+            throw new AppError("Predictions hidden until kickoff", 403);
         }
 
         const predictions = await Prediction.findAll({
@@ -377,23 +364,21 @@ exports.getAllPredictionsForMatch = async (req, res) => {
         // For simplicity and consistency with existing code (getLeaderboard), let's fetch all users. 
         // PRO: Simpler code. CON: Scaling issue. Optimization can come later.
 
-        const usersSnapshot = await admin.firestore().collection('users').get();
-        const usersMap = {};
-        usersSnapshot.forEach(doc => {
-            const data = doc.data();
-            usersMap[doc.id] = data.displayName || (data.first_name && data.last_name ? `${data.first_name} ${data.last_name}` : 'Unknown');
-        });
+        const usersMap = await userService.getCachedUsersMap();
 
-        const result = predictions.map(p => ({
-            user_id: p.user_id,
-            prediction: p.prediction,
-            displayName: usersMap[p.user_id] || 'Unknown User'
-        }));
+        const result = predictions.map(p => {
+            const userObj = usersMap[p.user_id];
+            return {
+                user_id: p.user_id,
+                prediction: p.prediction,
+                displayName: userObj ? userObj.displayName : 'Unknown User',
+                photoURL: userObj ? userObj.photoURL : null
+            };
+        });
 
         res.json(result);
 
     } catch (error) {
-        console.error("Error fetching match predictions:", error);
-        res.status(500).json({ message: "Error fetching match predictions" });
+        next(error);
     }
 };

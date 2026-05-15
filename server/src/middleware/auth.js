@@ -1,4 +1,5 @@
 const admin = require('../config/firebase');
+const userService = require('../services/userService');
 
 const verifyToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -25,22 +26,17 @@ const isAdmin = (req, res, next) => {
         // ideally we check claims. For now, assuming claim is set OR we check our Firestore user doc (but simpler to use claim)
         next();
     } else {
-        // Fallback: If we don't have custom claims, we might need to fetch the user from Firestore or MySQL
-        // For simplicity in this migration, let's assume if they migrated, they have claims? 
-        // Or we just fetch from Firestore here? That slows it down.
-        // Let's assume we can rely on email or a specific ID for the *initial* admin.
-        // Or better: Let's fetch the user role from Firestore just to be safe if not in token.
-        // Actually, the previous implementation checked Firestore doc.
-        // We can use admin.firestore().collection('users').doc(req.user.uid).get()
-        return admin.firestore().collection('users').doc(req.user.uid).get()
-            .then(doc => {
-                if (doc.exists && doc.data().role === 'admin') {
+        // Fallback: If we don't have custom claims, we fetch the user role from optimized in-memory cache
+        return userService.getCachedUserRole(req.user.uid)
+            .then(role => {
+                if (role === 'admin') {
                     next();
                 } else {
                     res.status(403).json({ message: 'Forbidden: Admin access required' });
                 }
             })
             .catch(err => {
+                console.error('Error checking admin status:', err);
                 res.status(500).json({ message: 'Error checking admin status' });
             });
     }
